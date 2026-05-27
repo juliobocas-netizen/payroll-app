@@ -1,0 +1,531 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  level       Int      @default(5)
+  description String?
+  createdAt   DateTime @default(now())
+  users       User[]
+}
+
+model User {
+  id                Int                @id @default(autoincrement())
+  customerId        Int?
+  username          String             @unique
+  passwordHash      String
+  email             String             @unique
+  fullName          String?
+  languagePref      String             @default("es")
+  dateFormat        String             @default("DD/MM/YYYY")
+  currencyDisplay   String             @default("USD")
+  roleId            Int
+  lastCustomerId    Int?
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  auditLogs         AuditLog[]
+  files             File[]
+  importHistories   ImportHistory[]
+  paymentOutputs    PaymentOutput[]
+  payrollDeductions PayrollDeduction[]
+  payrollEarnings   PayrollEarning[]
+  payrollRuns       PayrollRun[]       @relation("CalculatedBy")
+  approvals         PayrollRun[]       @relation("ApprovedBy")
+  closes            PayrollRun[]       @relation("ClosedBy")
+  customer          Customer?          @relation(fields: [customerId], references: [id])
+  role              Role               @relation(fields: [roleId], references: [id])
+}
+
+model Customer {
+  id                     Int                             @id @default(autoincrement())
+  name                   String
+  ruc                    String?
+  address                String?
+  contactName            String?
+  contactEmail           String?
+  contactPhone           String?
+  servicioFee            Float                           @default(0)
+  status                 String                          @default("activo")
+  metadata               String?
+  createdAt              DateTime                        @default(now())
+  updatedAt              DateTime                        @updatedAt
+  departments            Department[]
+  employees              Employee[]
+  warningAcknowledgments EmployeeWarningAcknowledgment[]
+  files                  File[]
+  importHistories        ImportHistory[]
+  overtimeRules          OvertimeRule[]
+  payCalendars           PayCalendar[]
+  payrollRuns            PayrollRun[]
+  positions              Position[]
+  serviceAgreements      ServiceAgreement[]
+  users                  User[]
+}
+
+model ServiceAgreement {
+  id         Int       @id @default(autoincrement())
+  customerId Int
+  startDate  DateTime
+  endDate    DateTime?
+  fileId     Int?
+  terms      String?
+  status     String    @default("active")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  file       File?     @relation(fields: [fileId], references: [id])
+}
+
+model File {
+  id          Int                @id @default(autoincrement())
+  customerId  Int?
+  filename    String
+  contentType String?
+  fileSize    Int?
+  storagePath String?
+  fileHash    String?
+  uploadedBy  Int?
+  createdAt   DateTime           @default(now())
+  metadata    String?
+  contracts   EmployeeContract[]
+  customer    Customer?          @relation(fields: [customerId], references: [id])
+  user        User?              @relation(fields: [uploadedBy], references: [id])
+  imports     ImportHistory[]
+  agreements  ServiceAgreement[]
+}
+
+model ImportStagedData {
+  id              Int      @id @default(autoincrement())
+  customerId      Int
+  payrollPeriodId Int?
+  uploadedBy      Int?
+  uploadedAt      DateTime @default(now())
+  fileId          Int?
+  rowData         String
+  status          String   @default("pending")
+  errorMessages   String?
+  fileHash        String?
+}
+
+model ImportHistory {
+  id              Int      @id @default(autoincrement())
+  customerId      Int
+  payrollPeriodId Int?
+  fileId          Int?
+  uploadedBy      Int?
+  uploadedAt      DateTime @default(now())
+  rowCount        Int      @default(0)
+  validCount      Int      @default(0)
+  errorCount      Int      @default(0)
+  fileHash        String?
+  metadata        String?
+  customer        Customer @relation(fields: [customerId], references: [id])
+  file            File?    @relation(fields: [fileId], references: [id])
+  user            User?    @relation(fields: [uploadedBy], references: [id])
+}
+
+model Department {
+  id         Int        @id @default(autoincrement())
+  customerId Int
+  name       String
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  customer   Customer   @relation(fields: [customerId], references: [id])
+  employees  Employee[]
+}
+
+model Position {
+  id         Int        @id @default(autoincrement())
+  customerId Int
+  title      String
+  isActive   Boolean    @default(true)
+  createdAt  DateTime   @default(now())
+  employees  Employee[]
+  customer   Customer   @relation(fields: [customerId], references: [id])
+}
+
+model Bank {
+  id            Int             @id @default(autoincrement())
+  bankName      String
+  routingNumber String?
+  address       String?
+  contactName   String?
+  phone         String?
+  email         String?
+  currency      String          @default("PAB")
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  employees     Employee[]
+  payments      PaymentOutput[]
+}
+
+model Employee {
+  id                     Int                             @id @default(autoincrement())
+  customerId             Int
+  employeeCode           String
+  firstName              String
+  lastName               String
+  identificationNumber   String?
+  idType                 String                          @default("cedula")
+  birthDate              DateTime?
+  sssNumber              String?
+  departmentId           Int?
+  positionId             Int?
+  baseSalary             Float
+  salaryFrequency        String                          @default("monthly")
+  paymentMethod          String                          @default("cash")
+  bankId                 Int?
+  accountNumber          String?
+  accountType            String?
+  isOvertimeEligible     Boolean                         @default(true)
+  restDay                String                          @default("domingo")
+  hireDate               DateTime?
+  terminationDate        DateTime?
+  isActive               Boolean                         @default(true)
+  metadata               String?
+  createdAt              DateTime                        @default(now())
+  updatedAt              DateTime                        @updatedAt
+  accruals13th           Accrual13thMonth[]
+  customer               Customer                        @relation(fields: [customerId], references: [id])
+  department             Department?                     @relation(fields: [departmentId], references: [id])
+  position               Position?                       @relation(fields: [positionId], references: [id])
+  bank                   Bank?                           @relation(fields: [bankId], references: [id])
+  contracts              EmployeeContract[]
+  recurringItems         EmployeeRecurringItem[]
+  warningAcknowledgments EmployeeWarningAcknowledgment[]
+  payments               PaymentOutput[]
+  deductions             PayrollDeduction[]
+  earnings               PayrollEarning[]
+  payrollInputs          PayrollInput[]
+  terminations           Termination[]
+  vacationAccruals       VacationAccrual[]
+
+  @@unique([customerId, employeeCode])
+}
+
+model EmployeeContract {
+  id           Int       @id @default(autoincrement())
+  employeeId   Int
+  contractType String?
+  startDate    DateTime
+  endDate      DateTime?
+  fileId       Int?
+  templateUsed String?
+  salaryAmount Float?
+  createdAt    DateTime  @default(now())
+  employee     Employee  @relation(fields: [employeeId], references: [id])
+  file         File?     @relation(fields: [fileId], references: [id])
+}
+
+model PayCalendar {
+  id          Int          @id @default(autoincrement())
+  customerId  Int
+  frequency   String
+  payFrom     DateTime
+  payTo       DateTime
+  paymentDate DateTime
+  periodLabel String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  customer    Customer     @relation(fields: [customerId], references: [id])
+  payrollRuns PayrollRun[]
+}
+
+model PayrollRun {
+  id               Int                @id @default(autoincrement())
+  customerId       Int
+  calendarId       Int?
+  payFrom          DateTime
+  payTo            DateTime
+  paymentDate      DateTime
+  status           String             @default("draft")
+  calculatedBy     Int?
+  calculatedAt     DateTime?
+  approvedBy       Int?
+  approvedAt       DateTime?
+  closedBy         Int?
+  closedAt         DateTime?
+  notes            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  accruals13th     Accrual13thMonth[]
+  payments         PaymentOutput[]
+  deductions       PayrollDeduction[]
+  earnings         PayrollEarning[]
+  inputs           PayrollInput[]
+  customer         Customer           @relation(fields: [customerId], references: [id])
+  calendar         PayCalendar?       @relation(fields: [calendarId], references: [id])
+  calculatedByUser User?              @relation("CalculatedBy", fields: [calculatedBy], references: [id])
+  approvedByUser   User?              @relation("ApprovedBy", fields: [approvedBy], references: [id])
+  closedByUser     User?              @relation("ClosedBy", fields: [closedBy], references: [id])
+  summaries        PayrollSummary[]
+}
+
+model PayrollEarning {
+  id           Int        @id @default(autoincrement())
+  payrollRunId Int
+  employeeId   Int
+  earningCode  String
+  description  String?
+  quantity     Float      @default(1)
+  unitAmount   Float
+  totalAmount  Float
+  isTaxable    Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  createdBy    Int?
+  payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee     Employee   @relation(fields: [employeeId], references: [id])
+  creator      User?      @relation(fields: [createdBy], references: [id])
+}
+
+model PayrollDeduction {
+  id            Int        @id @default(autoincrement())
+  payrollRunId  Int
+  employeeId    Int
+  deductionCode String
+  description   String?
+  amount        Float
+  isStatutory   Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  createdBy     Int?
+  payrollRun    PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee      Employee   @relation(fields: [employeeId], references: [id])
+  creator       User?      @relation(fields: [createdBy], references: [id])
+}
+
+model EmployeeRecurringItem {
+  id         Int       @id @default(autoincrement())
+  employeeId Int
+  itemType   String
+  code       String
+  amount     Float
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  endDate    DateTime?
+  startDate  DateTime?
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+}
+
+model Termination {
+  id                       Int      @id @default(autoincrement())
+  employeeId               Int
+  terminationDate          DateTime
+  reason                   String
+  primaAntiguedad          Float    @default(0)
+  vacacionesProporcionales Float    @default(0)
+  xiiiMesProporcional      Float    @default(0)
+  indemnizacion            Float    @default(0)
+  createdAt                DateTime @default(now())
+  employee                 Employee @relation(fields: [employeeId], references: [id])
+}
+
+model IsrTaxBracket {
+  id            Int       @id @default(autoincrement())
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  bracketOrder  Int
+  rangeMin      Float
+  rangeMax      Float?
+  rate          Float
+  fixedAmount   Float     @default(0)
+  createdAt     DateTime  @default(now())
+}
+
+model IsrSetting {
+  id                   Int       @id @default(autoincrement())
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  calculationMethod    String    @default("annualized")
+  roundingMethod       String    @default("nearest")
+  applyCssBeforeIsr    Boolean   @default(true)
+  applySeguroEducativo Boolean   @default(true)
+  metadata             String?
+  createdAt            DateTime  @default(now())
+}
+
+model StatutoryDeduction {
+  id            Int       @id @default(autoincrement())
+  code          String    @unique
+  description   String?
+  rate          Float?
+  capAmount     Float?
+  employeeRate  Float?
+  employerRate  Float?
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+}
+
+model OvertimeRule {
+  id                 Int       @id @default(autoincrement())
+  customerId         Int?
+  baseHourDivisor    Int       @default(240)
+  multiplierDiurna   Float     @default(1.25)
+  multiplierNocturna Float     @default(1.75)
+  multiplierMixta    Float     @default(1.50)
+  multiplierRestday  Float     @default(1.50)
+  multiplierHoliday  Float     @default(2.50)
+  stackMultipliers   Boolean   @default(true)
+  maxHoursPerDay     Float     @default(3)
+  maxHoursPerWeek    Float     @default(9)
+  effectiveFrom      DateTime
+  effectiveTo        DateTime?
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  customer           Customer? @relation(fields: [customerId], references: [id])
+}
+
+model Holiday {
+  id          Int      @id @default(autoincrement())
+  country     String   @default("Panama")
+  holidayDate DateTime
+  name        String
+  isNational  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Accrual13thMonth {
+  id            Int        @id @default(autoincrement())
+  employeeId    Int
+  payrollRunId  Int
+  amountAccrued Float
+  periodYear    Int
+  periodQuarter Int        @default(1)
+  createdAt     DateTime   @default(now())
+  employee      Employee   @relation(fields: [employeeId], references: [id])
+  payrollRun    PayrollRun @relation(fields: [payrollRunId], references: [id])
+}
+
+model VacationAccrual {
+  id          Int      @id @default(autoincrement())
+  employeeId  Int
+  earnedDays  Float    @default(0)
+  usedDays    Float    @default(0)
+  balanceDays Float    @default(0)
+  lastUpdated DateTime @default(now())
+  employee    Employee @relation(fields: [employeeId], references: [id])
+}
+
+model PaymentOutput {
+  id            Int          @id @default(autoincrement())
+  payrollRunId  Int
+  employeeId    Int
+  paymentMethod String
+  bankId        Int?
+  amountPaid    Float
+  paymentStatus String       @default("pending")
+  generatedAt   DateTime     @default(now())
+  generatedBy   Int?
+  exportRow     String?
+  payrollRun    PayrollRun   @relation(fields: [payrollRunId], references: [id])
+  employee      Employee     @relation(fields: [employeeId], references: [id])
+  bank          Bank?        @relation(fields: [bankId], references: [id])
+  generator     User?        @relation(fields: [generatedBy], references: [id])
+}
+
+model PayrollSummary {
+  id               Int        @id @default(autoincrement())
+  payrollRunId     Int
+  totalGross       Float
+  totalDeductions  Float
+  totalNet         Float
+  totalCssEmployer Float?
+  totalCssEmployee Float?
+  createdAt        DateTime   @default(now())
+  employeeCount    Int?
+  totalIsr         Float?
+  totalXiiiMonth   Float?
+  payrollRun       PayrollRun @relation(fields: [payrollRunId], references: [id])
+}
+
+model ThirteenthMonthParameter {
+  id                   Int      @id @default(autoincrement())
+  effectiveFrom        DateTime
+  effectiveTo          DateTime?
+  calculationMethod    String   @default("accrual")
+  accrualPercentage    Float    @default(8.33)
+  employerRate         Float?   @default(0)
+  paymentSchedule      String   @default("quarterly")
+  isActive             Boolean  @default(true)
+  metadata             String?
+  createdAt            DateTime @default(now())
+}
+
+model PayrollParameter {
+  id            Int      @id @default(autoincrement())
+  code          String   @unique
+  description   String?
+  value         String
+  dataType      String   @default("string")
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  isActive      Boolean  @default(true)
+  metadata      String?
+  createdAt     DateTime @default(now())
+}
+
+model AuditLog {
+  id              Int      @id @default(autoincrement())
+  tableName       String
+  recordId        String
+  action          String
+  changedBy       Int?
+  changedAt       DateTime @default(now())
+  oldValue        String?
+  newValue        String?
+  referenceFileId Int?
+  notes           String?
+  user            User?    @relation(fields: [changedBy], references: [id])
+}
+
+model PayrollInput {
+  id               Int        @id @default(autoincrement())
+  payrollRunId     Int
+  employeeId       Int?
+  employeeCode     String
+  date             DateTime
+  regularHours     Float?
+  overtimeHours    Float?
+  holidayHours     Float?
+  restDayHours     Float?
+  dailyAmount      Float?
+  regularAmount    Float?
+  overtimeAmount   Float?
+  holidayAmount    Float?
+  thirteenthAmount Float?
+  bonusAmount      Float?
+  otherAmount      Float?
+  inputType        String
+  source           String
+  status           String     @default("pending")
+  errorMessages    String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  attachmentUrl    String?
+  notes            String?
+  payrollRun       PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee         Employee?  @relation(fields: [employeeId], references: [id])
+}
+
+model EmployeeWarningAcknowledgment {
+  id           Int      @id @default(autoincrement())
+  customerId   Int
+  employeeId   Int
+  warningType  String
+  acknowledged Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  customer     Customer @relation(fields: [customerId], references: [id])
+  employee     Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([customerId, employeeId, warningType])
+}

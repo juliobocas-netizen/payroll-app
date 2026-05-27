@@ -1,0 +1,298 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary-container: var(--on-primary-container);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-container: var(--secondary-container);
+  --color-on-secondary-container: var(--on-secondary-container);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --color-surface-container: var(--surface-container);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --font-sans: var(--font-public-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display-lg: var(--font-display-lg);
+  --font-headline-md: var(--font-headline-md);
+  --font-title-sm: var(--font-title-sm);
+  --font-body-base: var(--font-body-base);
+  --font-body-sm: var(--font-body-sm);
+  --font-label-bold: var(--font-label-bold);
+  --font-data-mono: var(--font-data-mono);
+  --spacing-sidebar-width: 280px;
+  --spacing-container-padding: 32px;
+  --spacing-gutter: 24px;
+  --spacing-stack-sm: 4px;
+  --spacing-stack-md: 16px;
+  --spacing-stack-lg: 24px;
+  --spacing-base-unit: 8px;
+}
+
+:root {
+  --background: #f8f9ff;
+  --foreground: #0b1c30;
+  --card: #ffffff;
+  --card-foreground: #0b1c30;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --primary-container: #131b2e;
+  --on-primary-container: #7c839b;
+  --secondary: #0051d5;
+  --secondary-foreground: #ffffff;
+  --secondary-container: #316bf3;
+  --on-secondary-container: #fefcff;
+  --muted: #eff4ff;
+  --muted-foreground: #45464d;
+  --accent: #0051d5;
+  --accent-foreground: #ffffff;
+  --destructive: #ba1a1a;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0051d5;
+  --surface: #f8f9ff;
+  --surface-container: #e5eeff;
+  --surface-container-low: #eff4ff;
+  --surface-container-lowest: #ffffff;
+  --surface-variant: #d3e4fe;
+  --on-surface: #0b1c30;
+  --on-surface-variant: #45464d;
+  --outline: #76777d;
+  --outline-variant: #c6c6cd;
+  --font-public-sans: "Public Sans", system-ui, -apple-system, sans-serif;
+  --radius: 0.25rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b1c30;
+    --foreground: #eaf1ff;
+    --card: #131b2e;
+    --card-foreground: #eaf1ff;
+    --primary: #bec6e0;
+    --primary-foreground: #131b2e;
+    --primary-container: #213145;
+    --on-primary-container: #bec6e0;
+    --secondary: #b4c5ff;
+    --secondary-foreground: #00174b;
+    --secondary-container: #003ea8;
+    --on-secondary-container: #dbe1ff;
+    --muted: #213145;
+    --muted-foreground: #c6c6cd;
+    --accent: #b4c5ff;
+    --accent-foreground: #00174b;
+    --destructive: #ffdad6;
+    --destructive-foreground: #93000a;
+    --border: #45464d;
+    --input: #45464d;
+    --ring: #b4c5ff;
+    --surface: #0b1c30;
+    --surface-container: #213145;
+    --surface-container-low: #1a2538;
+    --surface-container-lowest: #131b2e;
+    --surface-variant: #2d3a50;
+    --on-surface: #eaf1ff;
+    --on-surface-variant: #c6c6cd;
+    --outline: #76777d;
+    --outline-variant: #45464d;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Public Sans", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display-lg {
+  font-size: 30px;
+  line-height: 38px;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.font-headline-md {
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+
+.font-title-sm {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+.font-body-base {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+}
+
+.font-body-sm {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+.font-label-bold {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.font-data-mono {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sidebar styles */
+.sidebar {
+  width: 280px;
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+}
+
+.sidebar-nav-item {
+  color: #76777d;
+  transition: all 0.2s ease;
+}
+
+.sidebar-nav-item:hover {
+  color: #eaf1ff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-nav-item.active {
+  color: #ffffff;
+  border-left: 2px solid var(--secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Card styles */
+.card {
+  background: var(--card);
+  border: 1px solid var(--outline-variant);
+  border-radius: 0.25rem;
+}
+
+/* Table styles */
+.table-header {
+  background: var(--surface-container-low);
+  border-bottom: 1px solid var(--outline-variant);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+}
+
+.table-row:hover {
+  background: var(--surface-container-low);
+}
+
+/* Custom Scrollbar for Sidebar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 10pt;
+  }
+  .sidebar,
+  nav,
+  button,
+  select,
+  input,
+  .animate-in,
+  .no-print {
+    display: none !important;
+  }
+  .report-print-area {
+    display: block !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    background: white !important;
+  }
+  .report-print-area table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+  .report-print-area thead {
+    display: table-header-group;
+  }
+  .report-print-area tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  .report-print-area td,
+  .report-print-area th {
+    padding: 4px 6px !important;
+    border: 1px solid #000 !important;
+    font-size: 9pt !important;
+  }
+  .report-print-area .shadow-sm,
+  .report-print-area .shadow-md,
+  .report-print-area .shadow-lg {
+    box-shadow: none !important;
+  }
+  .report-print-area h3 {
+    font-size: 14pt !important;
+    margin-bottom: 8px !important;
+  }
+  @page {
+    margin: 15mm;
+    size: auto;
+  }
+}
