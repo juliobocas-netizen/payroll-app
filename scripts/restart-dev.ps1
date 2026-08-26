@@ -8,8 +8,8 @@ param(
   [int]$port = 3000
 )
 
-$cwd = Split-Path -Leaf -Path $MyInvocation.MyCommand.Path
-Set-Location (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+Set-Location $ProjectRoot
 
 Write-Output "Restarting dev server on port $port..."
 

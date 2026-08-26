@@ -2,7 +2,7 @@ param(
   [int]$Port = 3000
 )
 
-$ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $ProjectRoot
 
 Write-Output "Stopping any existing process on port $Port..."

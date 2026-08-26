@@ -36,9 +36,15 @@ yarn-error.log*
 
 # build & dev logs
 build-log*.txt
+build-errors.txt
 dev-log*.txt
 dev-server*.log
 prisma-studio.log
+
+# local SQLite database (use PostgreSQL in production)
+dev.db
+prisma/dev.db
+*.db-journal
 
 # vercel
 .vercel

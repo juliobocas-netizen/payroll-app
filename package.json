@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:webpack": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "start-dev": "powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1"
+    "start-dev": "powershell -ExecutionPolicy Bypass -File scripts/start-dev.ps1",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
