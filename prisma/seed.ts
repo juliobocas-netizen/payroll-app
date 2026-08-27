@@ -873,6 +873,14 @@ async function main() {
     });
   }
 
+  await prisma.$executeRawUnsafe(`
+    SELECT setval(
+      pg_get_serial_sequence('"PayCalendar"', 'id'),
+      COALESCE((SELECT MAX("id") FROM "PayCalendar"), 0) + 1,
+      false
+    )
+  `);
+
   // ============================================
   // 12. CREATE ISR TAX BRACKETS (Panama 2026 - Art. 694 Codigo Fiscal)
   // ============================================
