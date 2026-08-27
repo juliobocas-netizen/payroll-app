@@ -821,6 +821,14 @@ async function main() {
     }),
   ]);
 
+  await prisma.$executeRawUnsafe(`
+    SELECT setval(
+      pg_get_serial_sequence('"Employee"', 'id'),
+      COALESCE((SELECT MAX("id") FROM "Employee"), 0) + 1,
+      false
+    )
+  `);
+
   // ============================================
   // 11. CREATE PAY CALENDARS (Full Year 2026 - All Customers)
   // ============================================
