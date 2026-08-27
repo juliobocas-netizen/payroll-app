@@ -1129,6 +1129,14 @@ async function main() {
     }),
   ]);
 
+  await prisma.$executeRawUnsafe(`
+    SELECT setval(
+      pg_get_serial_sequence('"PayrollRun"', 'id'),
+      COALESCE((SELECT MAX("id") FROM "PayrollRun"), 0) + 1,
+      false
+    )
+  `);
+
   for (const emp of employees) {
     const monthlyXiii = emp.baseSalary / 12;
     await Promise.all([
