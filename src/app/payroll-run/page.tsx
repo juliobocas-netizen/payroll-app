@@ -539,7 +539,8 @@ function PayrollRunContent() {
   };
 
   function handleInputChange(employeeCode: string, date: string, field: string, value: string) {
-    const numValue = parseFloat(value) || 0;
+    const parsedValue = parseFloat(value);
+    const numValue = Number.isFinite(parsedValue) ? Math.round(parsedValue * 100) / 100 : 0;
     setPayrollInputs(prev => {
       const dateStr = new Date(date).toISOString().split('T')[0];
       const existingIndex = prev.findIndex(i => i.employeeCode === employeeCode && new Date(i.date).toISOString().split('T')[0] === dateStr);
@@ -1267,7 +1268,10 @@ function PayrollRunContent() {
                                     {inputMode === 'hours' ? (
                                       <div className="flex flex-col gap-1">
                                         <input 
-                                          type="text" 
+                                          type="number" 
+                                          step="0.01"
+                                          min="0"
+                                          inputMode="decimal"
                                           placeholder="0"
                                           value={getInputValue(code, dateStr, 'regularHours')}
                                           onChange={(e) => handleInputChange(code, dateStr, 'regularHours', e.target.value)}
@@ -1275,7 +1279,10 @@ function PayrollRunContent() {
                                           className="grid-input w-full text-center text-xs py-0.5 border border-transparent hover:border-outline focus:border-secondary focus:bg-secondary/5 outline-none rounded"
                                         />
                                         <input 
-                                          type="text" 
+                                          type="number" 
+                                          step="0.01"
+                                          min="0"
+                                          inputMode="decimal"
                                           placeholder="0"
                                           value={getInputValue(code, dateStr, 'overtimeHours')}
                                           onChange={(e) => handleInputChange(code, dateStr, 'overtimeHours', e.target.value)}
@@ -1283,7 +1290,10 @@ function PayrollRunContent() {
                                           className="grid-input w-full text-center text-xs py-0.5 border border-transparent hover:border-outline focus:border-secondary focus:bg-secondary/5 outline-none rounded bg-orange-50/30"
                                         />
                                         <input 
-                                          type="text" 
+                                          type="number" 
+                                          step="0.01"
+                                          min="0"
+                                          inputMode="decimal"
                                           placeholder="0"
                                           value={getInputValue(code, dateStr, 'holidayHours')}
                                           onChange={(e) => handleInputChange(code, dateStr, 'holidayHours', e.target.value)}
@@ -1296,7 +1306,10 @@ function PayrollRunContent() {
                                         <div className="flex flex-col gap-0.5">
                                           <label className="text-green-600 font-bold px-0.5">REG</label>
                                           <input 
-                                            type="text" 
+                                            type="number" 
+                                            step="0.01"
+                                            min="0"
+                                            inputMode="decimal"
                                             placeholder="0.00"
                                             value={getInputValue(code, dateStr, 'regularAmount')}
                                             onChange={(e) => handleInputChange(code, dateStr, 'regularAmount', e.target.value)}
@@ -1307,7 +1320,10 @@ function PayrollRunContent() {
                                         <div className="flex flex-col gap-0.5">
                                           <label className="text-orange-600 font-bold px-0.5">OVT</label>
                                           <input 
-                                            type="text" 
+                                            type="number" 
+                                            step="0.01"
+                                            min="0"
+                                            inputMode="decimal"
                                             placeholder="0.00"
                                             value={getInputValue(code, dateStr, 'overtimeAmount')}
                                             onChange={(e) => handleInputChange(code, dateStr, 'overtimeAmount', e.target.value)}
@@ -1318,7 +1334,10 @@ function PayrollRunContent() {
                                         <div className="flex flex-col gap-0.5">
                                           <label className="text-purple-600 font-bold px-0.5">HOL</label>
                                           <input 
-                                            type="text" 
+                                            type="number" 
+                                            step="0.01"
+                                            min="0"
+                                            inputMode="decimal"
                                             placeholder="0.00"
                                             value={getInputValue(code, dateStr, 'holidayAmount')}
                                             onChange={(e) => handleInputChange(code, dateStr, 'holidayAmount', e.target.value)}
@@ -1329,7 +1348,10 @@ function PayrollRunContent() {
                                         <div className="flex flex-col gap-0.5">
                                           <label className="text-yellow-600 font-bold px-0.5">13TH</label>
                                           <input 
-                                            type="text" 
+                                            type="number" 
+                                            step="0.01"
+                                            min="0"
+                                            inputMode="decimal"
                                             placeholder="0.00"
                                             value={getInputValue(code, dateStr, 'thirteenthAmount')}
                                             onChange={(e) => handleInputChange(code, dateStr, 'thirteenthAmount', e.target.value)}
@@ -1340,7 +1362,10 @@ function PayrollRunContent() {
                                         <div className="flex flex-col gap-0.5">
                                           <label className="text-pink-600 font-bold px-0.5">BON</label>
                                           <input 
-                                            type="text" 
+                                              type="number" 
+                                              step="0.01"
+                                              min="0"
+                                              inputMode="decimal"
                                           placeholder="0.00"
                                           value={getInputValue(code, dateStr, 'bonusAmount')}
                                           onChange={(e) => handleInputChange(code, dateStr, 'bonusAmount', e.target.value)}
@@ -1351,7 +1376,10 @@ function PayrollRunContent() {
                                         <div className="flex flex-col gap-0.5">
                                           <label className="text-gray-600 font-bold px-0.5">OTH</label>
                                           <input 
-                                            type="text" 
+                                            type="number" 
+                                            step="0.01"
+                                            min="0"
+                                            inputMode="decimal"
                                             placeholder="0.00"
                                             value={getInputValue(code, dateStr, 'otherAmount')}
                                             onChange={(e) => handleInputChange(code, dateStr, 'otherAmount', e.target.value)}
