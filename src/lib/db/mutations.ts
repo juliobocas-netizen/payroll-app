@@ -466,6 +466,7 @@ export async function upsertPayrollInput(data: {
   startTime?: string;
   endTime?: string;
   breakMinutes?: number;
+  captureMode?: string;
   regularHours?: number;
   overtimeHours?: number;
   holidayHours?: number;
@@ -512,6 +513,7 @@ export async function upsertPayrollInput(data: {
       where: { id: existing.id },
       data: {
         ...cleanData,
+        captureMode: data.captureMode || "hours",
         employeeId,
         status: "pending",
       },
@@ -520,6 +522,7 @@ export async function upsertPayrollInput(data: {
     return prisma.payrollInput.create({
       data: {
         ...cleanData,
+        captureMode: data.captureMode || "hours",
         employeeId,
         status: "pending",
       },

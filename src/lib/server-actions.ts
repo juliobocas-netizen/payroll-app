@@ -601,6 +601,7 @@ export async function savePayrollInputsAction(payrollRunId: number, inputs: any[
           startTime: input.startTime || undefined,
           endTime: input.endTime || undefined,
           breakMinutes: input.breakMinutes == null ? undefined : Number(input.breakMinutes),
+          captureMode: input.captureMode || (input.startTime || input.endTime ? 'in-out-times' : input.inputType === 'amount' ? 'amounts' : 'hours'),
           regularHours: input.regularHours,
           overtimeHours: input.overtimeHours,
           holidayHours: input.holidayHours,

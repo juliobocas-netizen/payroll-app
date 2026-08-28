@@ -96,7 +96,7 @@ function PayrollRunContent() {
   const [payrollInputs, setPayrollInputs] = useState<any[]>([]);
   const [allEmployees, setAllEmployees] = useState<any[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
-  const [inputMode, setInputMode] = useState<'hours' | 'amount'>('hours');
+  const [inputMode, setInputMode] = useState<'hours' | 'amounts' | 'in-out-times'>('hours');
   const [inputMethod, setInputMethod] = useState<'manual' | 'excel'>('manual');
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -125,9 +125,6 @@ function PayrollRunContent() {
     (input.bonusAmount && input.bonusAmount > 0) || 
     (input.otherAmount && input.otherAmount > 0)
   );
-
-  const canSwitchToHours = !hasAmountsData;
-  const canSwitchToAmounts = !hasHoursData;
 
   useEffect(() => {
     const loadWarnings = async () => {
@@ -301,7 +298,9 @@ function PayrollRunContent() {
                 (i.bonusAmount && i.bonusAmount > 0) ||
                 (i.otherAmount && i.otherAmount > 0)
               );
-              if (hasAmounts && !hasHours) setInputMode('amount');
+              const hasInOutTimes = inputRes.inputs.some((i: any) => i.startTime || i.endTime || i.captureMode === 'in-out-times');
+              if (hasInOutTimes && !hasAmounts && !hasHours) setInputMode('in-out-times');
+              else if (hasAmounts && !hasHours) setInputMode('amounts');
               else if (hasHours && !hasAmounts) setInputMode('hours');
             }
           });
@@ -561,7 +560,7 @@ function PayrollRunContent() {
         const isAmountField = ['regularAmount', 'overtimeAmount', 'holidayAmount', 'thirteenthAmount', 'bonusAmount', 'otherAmount'].includes(field);
         const isHourField = ['regularHours', 'overtimeHours', 'holidayHours', 'restDayHours'].includes(field);
         
-        if (isAmountField && existingInput.inputType === 'hours') {
+        if (isAmountField && existingInput.inputType !== 'amount') {
           // Clear hour fields when entering amounts
           newInputs[existingIndex] = { 
             ...existingInput, 
@@ -570,6 +569,7 @@ function PayrollRunContent() {
             holidayHours: 0, 
             restDayHours: 0,
             inputType: 'amount',
+            captureMode: 'amounts',
             [field]: numValue 
           };
         } else if (isHourField && existingInput.inputType === 'amount') {
@@ -583,6 +583,7 @@ function PayrollRunContent() {
             bonusAmount: 0, 
             otherAmount: 0,
             inputType: 'hours',
+            captureMode: 'hours',
             [field]: numValue 
           };
         } else {
@@ -595,7 +596,8 @@ function PayrollRunContent() {
           employeeCode, 
           date: new Date(date), 
           [field]: numValue, 
-          inputType: inputMode, 
+          inputType: inputMode === 'amounts' ? 'amount' : 'hours',
+          captureMode: inputMode,
           source: 'manual',
           status: 'pending'
         }];
@@ -609,7 +611,7 @@ function PayrollRunContent() {
       const existingIndex = prev.findIndex(i => i.employeeCode === employeeCode && new Date(i.date).toISOString().split('T')[0] === dateStr);
       if (existingIndex > -1) {
         const newInputs = [...prev];
-        newInputs[existingIndex] = { ...newInputs[existingIndex], [field]: value, inputType: "hours" };
+        newInputs[existingIndex] = { ...newInputs[existingIndex], [field]: value, inputType: "hours", captureMode: "in-out-times" };
         return newInputs;
       }
       return [...prev, {
@@ -617,6 +619,7 @@ function PayrollRunContent() {
         date: new Date(date),
         [field]: value,
         inputType: "hours",
+        captureMode: "in-out-times",
         source: "manual",
         status: "pending"
       }];
@@ -644,7 +647,8 @@ function PayrollRunContent() {
           employeeCode, 
           date: new Date(payFrom), 
           notes: value,
-          inputType: inputMode, 
+          inputType: inputMode === 'amounts' ? 'amount' : 'hours',
+          captureMode: inputMode,
           source: 'manual',
           status: 'pending'
         }];
@@ -1176,17 +1180,21 @@ function PayrollRunContent() {
                   <div className="flex bg-surface-container rounded-lg p-1 mr-4">
                     <button 
                       onClick={() => setInputMode('hours')}
-                      disabled={!canSwitchToHours}
-                      className={`px-4 py-1.5 rounded-md text-sm font-label-bold transition-all ${inputMode === 'hours' ? 'bg-white shadow-sm text-secondary' : 'text-on-surface-variant'} ${!canSwitchToHours ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`px-4 py-1.5 rounded-md text-sm font-label-bold transition-all ${inputMode === 'hours' ? 'bg-white shadow-sm text-secondary' : 'text-on-surface-variant'}`}
                     >
                       {t(locale, "payroll.captureHours")}
                     </button>
                     <button 
-                      onClick={() => setInputMode('amount')}
-                      disabled={!canSwitchToAmounts}
-                      className={`px-4 py-1.5 rounded-md text-sm font-label-bold transition-all ${inputMode === 'amount' ? 'bg-white shadow-sm text-secondary' : 'text-on-surface-variant'} ${!canSwitchToAmounts ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onClick={() => setInputMode('amounts')}
+                      className={`px-4 py-1.5 rounded-md text-sm font-label-bold transition-all ${inputMode === 'amounts' ? 'bg-white shadow-sm text-secondary' : 'text-on-surface-variant'}`}
                     >
                       {t(locale, "payroll.captureAmounts")}
+                    </button>
+                    <button
+                      onClick={() => setInputMode('in-out-times')}
+                      className={`px-4 py-1.5 rounded-md text-sm font-label-bold transition-all ${inputMode === 'in-out-times' ? 'bg-white shadow-sm text-secondary' : 'text-on-surface-variant'}`}
+                    >
+                      In-and-Out Times
                     </button>
                   </div>
                   
@@ -1265,9 +1273,10 @@ function PayrollRunContent() {
                           const rowTotal = empInputs.reduce((sum, input) => {
                             if (inputMode === 'hours') {
                               return sum + (input.regularHours || 0) + (input.overtimeHours || 0) + (input.holidayHours || 0);
-                            } else {
+                            } else if (inputMode === 'amounts') {
                               return sum + (input.regularAmount || 0) + (input.overtimeAmount || 0) + (input.holidayAmount || 0) + (input.thirteenthAmount || 0) + (input.bonusAmount || 0) + (input.otherAmount || 0);
                             }
+                            return sum;
                           }, 0);
 
                           return (
@@ -1288,7 +1297,7 @@ function PayrollRunContent() {
                                     <span className="bg-orange-100 text-orange-700 px-1 rounded">OVT</span>
                                     <span className="bg-purple-100 text-purple-700 px-1 rounded">HOL</span>
                                   </div>
-                                ) : (
+                                ) : inputMode === 'amounts' ? (
                                   <div className="flex flex-col gap-1 text-[8px] font-bold text-slate-500">
                                     <span className="bg-green-100 text-green-700 px-1 rounded">REG</span>
                                     <span className="bg-orange-100 text-orange-700 px-1 rounded">OVT</span>
@@ -1297,6 +1306,12 @@ function PayrollRunContent() {
                                     <span className="bg-pink-100 text-pink-700 px-1 rounded">BON</span>
                                     <span className="bg-gray-100 text-gray-700 px-1 rounded">OTH</span>
                                   </div>
+                                ) : (
+                                  <div className="flex flex-col gap-1 text-[9px] font-bold text-slate-500">
+                                    <span className="bg-blue-100 text-blue-700 px-1 rounded">IN</span>
+                                    <span className="bg-blue-100 text-blue-700 px-1 rounded">OUT</span>
+                                    <span className="bg-slate-100 text-slate-700 px-1 rounded">BREAK</span>
+                                  </div>
                                 )}
                               </td>
                               {periodDates.map(date => {
@@ -1304,35 +1319,7 @@ function PayrollRunContent() {
                                 return (
                                   <td key={dateStr} className="px-1 py-1 border-l border-outline">
                                     {inputMode === 'hours' ? (
-                                      <div className="flex flex-col gap-1 min-w-[92px]">
-                                        <span className="text-[9px] font-bold text-slate-500 text-center">IN</span>
-                                        <input
-                                          type="time"
-                                          aria-label={`Start time ${code} ${dateStr}`}
-                                          value={getTimeValue(code, dateStr, 'startTime')}
-                                          onChange={(e) => handleTimeChange(code, dateStr, 'startTime', e.target.value)}
-                                          className="grid-input w-full text-center text-[10px] py-0.5 border border-blue-100 rounded"
-                                        />
-                                        <span className="text-[9px] font-bold text-slate-500 text-center">OUT</span>
-                                        <input
-                                          type="time"
-                                          aria-label={`End time ${code} ${dateStr}`}
-                                          value={getTimeValue(code, dateStr, 'endTime')}
-                                          onChange={(e) => handleTimeChange(code, dateStr, 'endTime', e.target.value)}
-                                          className="grid-input w-full text-center text-[10px] py-0.5 border border-blue-100 rounded"
-                                        />
-                                        <span className="text-[9px] font-bold text-slate-500 text-center">BREAK</span>
-                                        <input
-                                          type="number"
-                                          min="0"
-                                          step="1"
-                                          inputMode="numeric"
-                                          aria-label={`Break minutes ${code} ${dateStr}`}
-                                          placeholder="Break min"
-                                          value={getInputValue(code, dateStr, 'breakMinutes')}
-                                          onChange={(e) => handleInputChange(code, dateStr, 'breakMinutes', e.target.value)}
-                                          className="grid-input w-full text-center text-[10px] py-0.5 border border-blue-100 rounded"
-                                        />
+                                      <div className="flex flex-col gap-1">
                                         <input 
                                           type="number" 
                                           step="0.01"
@@ -1367,7 +1354,7 @@ function PayrollRunContent() {
                                           className="grid-input w-full text-center text-xs py-0.5 border border-transparent hover:border-outline focus:border-secondary focus:bg-secondary/5 outline-none rounded bg-purple-50/30"
                                         />
                                       </div>
-                                    ) : (
+                                    ) : inputMode === 'amounts' ? (
                                       <div className="flex flex-col gap-0.5 text-[10px]">
                                         <div className="flex flex-col gap-0.5">
                                           <label className="text-green-600 font-bold px-0.5">REG</label>
@@ -1454,6 +1441,37 @@ function PayrollRunContent() {
                                           />
                                         </div>
                                       </div>
+                                    ) : (
+                                      <div className="flex flex-col gap-1 min-w-[92px]">
+                                        <span className="text-[9px] font-bold text-slate-500 text-center">IN</span>
+                                        <input
+                                          type="time"
+                                          aria-label={`Start time ${code} ${dateStr}`}
+                                          value={getTimeValue(code, dateStr, 'startTime')}
+                                          onChange={(e) => handleTimeChange(code, dateStr, 'startTime', e.target.value)}
+                                          className="grid-input w-full text-center text-[10px] py-0.5 border border-blue-100 rounded"
+                                        />
+                                        <span className="text-[9px] font-bold text-slate-500 text-center">OUT</span>
+                                        <input
+                                          type="time"
+                                          aria-label={`End time ${code} ${dateStr}`}
+                                          value={getTimeValue(code, dateStr, 'endTime')}
+                                          onChange={(e) => handleTimeChange(code, dateStr, 'endTime', e.target.value)}
+                                          className="grid-input w-full text-center text-[10px] py-0.5 border border-blue-100 rounded"
+                                        />
+                                        <span className="text-[9px] font-bold text-slate-500 text-center">BREAK</span>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="1"
+                                          inputMode="numeric"
+                                          aria-label={`Break minutes ${code} ${dateStr}`}
+                                          placeholder="Minutes"
+                                          value={getInputValue(code, dateStr, 'breakMinutes')}
+                                          onChange={(e) => handleInputChange(code, dateStr, 'breakMinutes', e.target.value)}
+                                          className="grid-input w-full text-center text-[10px] py-0.5 border border-blue-100 rounded"
+                                        />
+                                      </div>
                                     )}
                                   </td>
                                 );
@@ -1461,7 +1479,7 @@ function PayrollRunContent() {
                               {/* Total Column */}
                               <td className="px-4 py-3 text-center border-l border-outline bg-slate-50">
                                 <span className={`font-black ${inputMode === 'hours' ? 'text-secondary' : 'text-green-700'} text-sm`}>
-                                  {inputMode === 'hours' ? rowTotal : formatCurrency(rowTotal)}
+                                  {inputMode === 'in-out-times' ? "Clock-based" : inputMode === 'hours' ? rowTotal.toFixed(2) : formatCurrency(rowTotal)}
                                 </span>
                               </td>
                               {/* Comment / Docs Column */}

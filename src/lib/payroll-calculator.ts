@@ -19,6 +19,7 @@ export interface PayrollResult {
   shiftType: ShiftType | null;
   baseRate: number;
   breakdown: TimeSegment[];
+  captureMode: string;
   premiums: number;
   totalPay: number;
   grossPay: number;
@@ -178,6 +179,11 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
     let overtimeHours = 0;
     let shiftType: ShiftType | null = null;
     let breakdown: TimeSegment[] = [];
+    let captureMode = empInputs.some(input => input.captureMode === "in-out-times" || (input.startTime && input.endTime))
+      ? "in-out-times"
+      : empInputs.some(input => input.captureMode === "amounts" || input.inputType === "amount")
+        ? "amounts"
+        : "hours";
 
     if (salaryType === "monthly" && empInputs.some(input => input.inputType !== "amount")) {
       const basePay = round((emp.baseSalary / 30) * daysWorked);
@@ -518,6 +524,7 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
       shiftType,
       baseRate: hourlyRate,
       breakdown,
+      captureMode,
       premiums: round(premiums),
       totalPay: grossPay,
       grossPay,
