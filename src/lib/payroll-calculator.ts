@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { calculateTimePayroll, type TimeSegment, type ShiftType } from "@/lib/calculations/panama-time";
 import { createAuditLog, createPayrollEarning, createPayrollDeduction, createPaymentOutput, createAccrual13thMonth, createPayrollSummary, clearPayrollRunEarningsAndDeductions, updatePayrollRunStatus } from "@/lib/db/mutations";
 
 export interface PayrollResult {
@@ -11,6 +12,13 @@ export interface PayrollResult {
   payFrequency: string;
   hoursWorked: number;
   daysWorked: number;
+  dayHours: number;
+  eveningHours: number;
+  nightHours: number;
+  overtimeHours: number;
+  shiftType: ShiftType | null;
+  baseRate: number;
+  breakdown: TimeSegment[];
   premiums: number;
   totalPay: number;
   grossPay: number;
@@ -99,6 +107,12 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
     },
   });
 
+  const holidays = await prisma.holiday.findMany({
+    where: { isNational: true },
+    select: { holidayDate: true },
+  });
+  const holidayDates = new Set(holidays.map(holiday => holiday.holidayDate.toISOString().split("T")[0]));
+
   const isrBrackets = await prisma.isrTaxBracket.findMany({
     orderBy: { bracketOrder: "asc" },
   });
@@ -156,8 +170,14 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
     const salaryType = emp.salaryType || "monthly";
     const hourlyRate = salaryType === "hourly" ? round(emp.baseSalary) : round(emp.baseSalary / otBaseDivisor);
     const daysWorked = Math.max(1, Math.ceil((payrollRun.payTo.getTime() - payrollRun.payFrom.getTime()) / 86400000) + 1);
-    const hoursWorked = empInputs.reduce((sum, input) => sum + (input.regularHours || 0) + (input.overtimeHours || 0) + (input.holidayHours || 0) + (input.restDayHours || 0), 0);
+    let hoursWorked = empInputs.reduce((sum, input) => sum + (input.regularHours || 0) + (input.overtimeHours || 0) + (input.holidayHours || 0) + (input.restDayHours || 0), 0);
     let premiums = 0;
+    let dayHours = 0;
+    let eveningHours = 0;
+    let nightHours = 0;
+    let overtimeHours = 0;
+    let shiftType: ShiftType | null = null;
+    let breakdown: TimeSegment[] = [];
 
     if (salaryType === "monthly" && empInputs.some(input => input.inputType !== "amount")) {
       const basePay = round((emp.baseSalary / 30) * daysWorked);
@@ -174,6 +194,44 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
 
     // Process Inputs
     for (const input of empInputs) {
+      if (input.startTime && input.endTime) {
+        const inputDate = input.date.toISOString().split("T")[0];
+        const date = new Date(`${inputDate}T00:00:00Z`);
+        const timeResult = calculateTimePayroll({
+          startTime: input.startTime,
+          endTime: input.endTime,
+          breakMinutes: input.breakMinutes || 0,
+          baseRate: hourlyRate,
+          isSunday: date.getUTCDay() === 0,
+          isHoliday: holidayDates.has(inputDate),
+        });
+        const regularBasePay = round(timeResult.totalHours * hourlyRate);
+        const payableAmount = salaryType === "monthly"
+          ? round(timeResult.totalPay - regularBasePay)
+          : timeResult.totalPay;
+        grossPay += payableAmount;
+        premiums += salaryType === "monthly" ? payableAmount : timeResult.premiums;
+        hoursWorked += timeResult.totalHours;
+        dayHours += timeResult.dayHours;
+        eveningHours += timeResult.eveningHours;
+        nightHours += timeResult.nightHours;
+        overtimeHours += timeResult.overtimeHours;
+        shiftType = timeResult.shiftType;
+        breakdown = [...breakdown, ...timeResult.breakdown];
+
+        if (payableAmount > 0) {
+          earnings.push({
+            code: "TIEMPO_TRABAJADO",
+            description: `${timeResult.shiftType} ${input.startTime}-${input.endTime}`,
+            quantity: timeResult.totalHours,
+            unitAmount: hourlyRate,
+            totalAmount: payableAmount,
+            isTaxable: true,
+          });
+        }
+        continue;
+      }
+
       if (input.inputType === "amount") {
         // Amount-based - no additional calculations, just sum the amounts
         const regularAmt = input.regularAmount || 0;
@@ -453,6 +511,13 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
       payFrequency: frequency,
       hoursWorked,
       daysWorked: salaryType === "monthly" ? daysWorked : 0,
+      dayHours: round(dayHours),
+      eveningHours: round(eveningHours),
+      nightHours: round(nightHours),
+      overtimeHours: round(overtimeHours),
+      shiftType,
+      baseRate: hourlyRate,
+      breakdown,
       premiums: round(premiums),
       totalPay: grossPay,
       grossPay,

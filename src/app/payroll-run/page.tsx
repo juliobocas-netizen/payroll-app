@@ -603,6 +603,32 @@ function PayrollRunContent() {
     });
   }
 
+  function handleTimeChange(employeeCode: string, date: string, field: "startTime" | "endTime", value: string) {
+    setPayrollInputs(prev => {
+      const dateStr = new Date(date).toISOString().split('T')[0];
+      const existingIndex = prev.findIndex(i => i.employeeCode === employeeCode && new Date(i.date).toISOString().split('T')[0] === dateStr);
+      if (existingIndex > -1) {
+        const newInputs = [...prev];
+        newInputs[existingIndex] = { ...newInputs[existingIndex], [field]: value, inputType: "hours" };
+        return newInputs;
+      }
+      return [...prev, {
+        employeeCode,
+        date: new Date(date),
+        [field]: value,
+        inputType: "hours",
+        source: "manual",
+        status: "pending"
+      }];
+    });
+  }
+
+  function getTimeValue(employeeCode: string, date: string, field: "startTime" | "endTime") {
+    const dateStr = new Date(date).toISOString().split('T')[0];
+    const input = payrollInputs.find(i => i.employeeCode === employeeCode && new Date(i.date).toISOString().split('T')[0] === dateStr);
+    return input?.[field] || "";
+  }
+
   function handleNoteChange(employeeCode: string, value: string) {
     setPayrollInputs(prev => {
       // Find the first input for this employee to attach the note to
@@ -1278,7 +1304,35 @@ function PayrollRunContent() {
                                 return (
                                   <td key={dateStr} className="px-1 py-1 border-l border-outline">
                                     {inputMode === 'hours' ? (
-                                      <div className="flex flex-col gap-1">
+                                      <div className="flex flex-col gap-1 min-w-[92px]">
+                                        <span className="text-[9px] font-bold text-slate-500 text-center">IN</span>
+                                        <input
+                                          type="time"
+                                          aria-label={`Start time ${code} ${dateStr}`}
+                                          value={getTimeValue(code, dateStr, 'startTime')}
+                                          onChange={(e) => handleTimeChange(code, dateStr, 'startTime', e.target.value)}
+                                          className="grid-input w-full text-center text-[10px] py-0.5 border border-blue-100 rounded"
+                                        />
+                                        <span className="text-[9px] font-bold text-slate-500 text-center">OUT</span>
+                                        <input
+                                          type="time"
+                                          aria-label={`End time ${code} ${dateStr}`}
+                                          value={getTimeValue(code, dateStr, 'endTime')}
+                                          onChange={(e) => handleTimeChange(code, dateStr, 'endTime', e.target.value)}
+                                          className="grid-input w-full text-center text-[10px] py-0.5 border border-blue-100 rounded"
+                                        />
+                                        <span className="text-[9px] font-bold text-slate-500 text-center">BREAK</span>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          step="1"
+                                          inputMode="numeric"
+                                          aria-label={`Break minutes ${code} ${dateStr}`}
+                                          placeholder="Break min"
+                                          value={getInputValue(code, dateStr, 'breakMinutes')}
+                                          onChange={(e) => handleInputChange(code, dateStr, 'breakMinutes', e.target.value)}
+                                          className="grid-input w-full text-center text-[10px] py-0.5 border border-blue-100 rounded"
+                                        />
                                         <input 
                                           type="number" 
                                           step="0.01"
