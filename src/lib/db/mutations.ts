@@ -465,6 +465,8 @@ export async function upsertPayrollInput(data: {
   date: Date;
   startTime?: string;
   endTime?: string;
+  breakStartTime?: string;
+  breakEndTime?: string;
   breakMinutes?: number;
   captureMode?: string;
   regularHours?: number;

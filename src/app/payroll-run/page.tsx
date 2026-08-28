@@ -99,6 +99,8 @@ function PayrollRunContent() {
   const [inputMode, setInputMode] = useState<'hours' | 'amounts' | 'in-out-times'>('hours');
   const [inputMethod, setInputMethod] = useState<'manual' | 'excel'>('manual');
   const [showEmployeeSearch, setShowEmployeeSearch] = useState(false);
+  const [inOutPreview, setInOutPreview] = useState<any[]>([]);
+  const [showInOutPreview, setShowInOutPreview] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isLoadingInputs, setIsLoadingInputs] = useState(false);
@@ -428,6 +430,97 @@ function PayrollRunContent() {
   }
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inOutFileInputRef = useRef<HTMLInputElement>(null);
+
+  function excelDate(value: unknown): string | null {
+    if (typeof value === "number") {
+      const date = new Date(Date.UTC(1899, 11, 30) + Math.floor(value) * 86400000);
+      return date.toISOString().split("T")[0];
+    }
+    if (typeof value !== "string" || !value.trim()) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString().split("T")[0];
+  }
+
+  function excelTime(value: unknown): string | null {
+    let minutes: number;
+    if (typeof value === "number") {
+      minutes = Math.round((value % 1) * 1440);
+    } else if (typeof value === "string" && /^\d{1,2}:\d{2}/.test(value.trim())) {
+      const [hours, mins] = value.trim().split(":").map(Number);
+      minutes = hours * 60 + mins;
+    } else return null;
+    minutes = (minutes + 1440) % 1440;
+    return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  }
+
+  function handleInOutImport(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !currentCustomer) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const workbook = XLSX.read(reader.result, { type: "array", cellDates: false });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: null, raw: true });
+        const employeeCode = String(rows[5]?.[1] || "").trim().toUpperCase();
+        const employeeList = allEmployees.length > 0
+          ? allEmployees
+          : (await getEmployeesAction(currentCustomer.id)).employees || [];
+        const employee = employeeList.find(item => item.employeeCode?.toUpperCase() === employeeCode);
+        if (!employee) {
+          alert(`Employee code ${employeeCode || "from cell B6"} was not found for the active customer.`);
+          return;
+        }
+        const headerIndex = rows.findIndex(row => row.some((cell: unknown) => String(cell || "").trim().toUpperCase() === "DATE"));
+        if (headerIndex < 0) throw new Error("The workbook must contain a DATE column.");
+        const headers = rows[headerIndex].map((cell: unknown) => String(cell || "").trim().toUpperCase());
+        const column = (...names: string[]) => headers.findIndex(header => names.includes(header));
+        const dateColumn = column("DATE");
+        const firstInColumn = column("FIRST IN", "FIRST_IN");
+        const breakStartColumn = column("BREAK 1 START", "BREAK START", "BREAK_1_START");
+        const breakEndColumn = column("BREAK 1 END", "BREAK END", "BREAK_1_END");
+        const lastOutColumn = column("LAST OUT", "LAST_OUT");
+        const hoursColumn = column("PAYROLL HRS", "PAYROLL HOURS", "HOURS");
+        if ([dateColumn, firstInColumn, lastOutColumn, hoursColumn].some(index => index < 0)) {
+          throw new Error("Required columns are DATE, FIRST IN, LAST OUT, and PAYROLL HRS.");
+        }
+        const imported: any[] = [];
+        rows.slice(headerIndex + 1).forEach(row => {
+          const date = excelDate(row[dateColumn]);
+          const hours = Number(row[hoursColumn]);
+          if (!date || String(row[5] || "").toLowerCase().includes("total") || (!hours && !row[firstInColumn] && !row[lastOutColumn])) return;
+          const firstIn = excelTime(row[firstInColumn]);
+          const lastOut = excelTime(row[lastOutColumn]);
+          const breakStart = breakStartColumn >= 0 ? excelTime(row[breakStartColumn]) : null;
+          const breakEnd = breakEndColumn >= 0 ? excelTime(row[breakEndColumn]) : null;
+          if (!firstIn || !lastOut) return;
+          if (breakStart && breakEnd && breakStart >= breakEnd) throw new Error(`Invalid break on ${date}: break start must be before break end.`);
+          const breakMinutes = breakStart && breakEnd
+            ? (parseInt(breakEnd.slice(0, 2), 10) * 60 + parseInt(breakEnd.slice(3), 10)) - (parseInt(breakStart.slice(0, 2), 10) * 60 + parseInt(breakStart.slice(3), 10))
+            : 0;
+          imported.push({ employeeCode, employeeId: employee.id, date, day: row[1] || "", startTime: firstIn, endTime: lastOut, breakStartTime: breakStart, breakEndTime: breakEnd, breakMinutes, payrollHours: Number.isFinite(hours) ? Number(hours.toFixed(2)) : 0, inputType: "hours", captureMode: "in-out-times", source: "imported", status: "pending" });
+        });
+        if (!imported.length) throw new Error("No valid timesheet rows were found.");
+        setInOutPreview(imported);
+        setInputMode("in-out-times");
+        setShowInOutPreview(true);
+      } catch (error: any) {
+        alert(error.message || "Failed to import in-and-out times.");
+      } finally {
+        event.target.value = "";
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function saveInOutPreview() {
+    setPayrollInputs(prev => {
+      const withoutImportedDates = prev.filter(input => !inOutPreview.some(row => input.employeeCode === row.employeeCode && new Date(input.date).toISOString().split("T")[0] === row.date));
+      return [...withoutImportedDates, ...inOutPreview];
+    });
+    setShowInOutPreview(false);
+  }
 
   const downloadExcelTemplate = () => {
     const wb = XLSX.utils.book_new();
@@ -1220,6 +1313,19 @@ function PayrollRunContent() {
                     {isCalculating ? <RefreshCw size={18} className="animate-spin" /> : <Shield size={18} />}
                     {t(locale, "payroll.validateSave")}
                   </button>
+                  <input
+                    ref={inOutFileInputRef}
+                    type="file"
+                    accept=".xlsx"
+                    onChange={handleInOutImport}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => inOutFileInputRef.current?.click()}
+                    className="px-4 py-2 border border-secondary text-secondary rounded-lg font-label-bold flex items-center gap-2 hover:bg-secondary/5 transition-all"
+                  >
+                    Importar In-and-Out Times
+                  </button>
                   <button 
                     onClick={handleResetData}
                     disabled={isCalculating || isLoadingInputs || payrollInputs.length === 0}
@@ -1722,6 +1828,36 @@ function PayrollRunContent() {
           </>
         )}
       </div>
+
+      {showInOutPreview && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[110] p-4">
+          <div className="bg-white rounded-xl max-w-5xl w-full shadow-2xl overflow-hidden">
+            <div className="p-4 border-b border-outline flex justify-between items-center bg-surface-container">
+              <div>
+                <h3 className="font-title-sm">Review Imported In-and-Out Times</h3>
+                <p className="text-xs text-on-surface-variant">{inOutPreview.length} valid rows ready to save</p>
+              </div>
+              <button onClick={() => setShowInOutPreview(false)} className="p-1 hover:bg-slate-200 rounded-full"><X size={20} /></button>
+            </div>
+            <div className="p-4 max-h-[55vh] overflow-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead><tr className="bg-surface-container-low text-left"><th className="p-2">Employee</th><th className="p-2">Date</th><th className="p-2">Day</th><th className="p-2">First In</th><th className="p-2">Break Start</th><th className="p-2">Break End</th><th className="p-2">Last Out</th><th className="p-2">Payroll Hours</th></tr></thead>
+                <tbody>
+                  {inOutPreview.map((row, index) => (
+                    <tr key={`${row.date}-${index}`} className="border-b border-outline">
+                      <td className="p-2">{row.employeeCode}</td><td className="p-2">{row.date}</td><td className="p-2">{row.day}</td><td className="p-2">{row.startTime}</td><td className="p-2">{row.breakStartTime || "-"}</td><td className="p-2">{row.breakEndTime || "-"}</td><td className="p-2">{row.endTime}</td><td className="p-2">{row.payrollHours.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 border-t border-outline flex justify-end gap-3">
+              <button onClick={() => setShowInOutPreview(false)} className="px-4 py-2 text-sm font-bold text-on-surface-variant">Descartar</button>
+              <button onClick={saveInOutPreview} className="px-5 py-2 bg-secondary text-white rounded-lg text-sm font-bold">Guardar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Employee Search Modal */}
       {showEmployeeSearch && (

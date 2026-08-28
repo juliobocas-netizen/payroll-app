@@ -497,6 +497,8 @@ model PayrollInput {
   date             DateTime
   startTime        String?
   endTime          String?
+  breakStartTime   String?
+  breakEndTime     String?
   breakMinutes     Int?
   captureMode      String           @default("hours")
   regularHours     Float?
