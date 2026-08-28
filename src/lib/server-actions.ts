@@ -52,6 +52,12 @@ export async function createEmployeeAction(formData: FormData) {
     return { error: "Required fields missing" };
   }
 
+  const baseSalary = parseFloat(formData.get("baseSalary") as string);
+  const salaryType = (formData.get("salaryType") as string) || "";
+  if (!Number.isFinite(baseSalary) || baseSalary < 0 || !["hourly", "monthly"].includes(salaryType)) {
+    return { error: "A valid salary amount and salary type are required" };
+  }
+
   try {
     const employee = await createEmployee({
       customerId,
@@ -64,8 +70,9 @@ export async function createEmployeeAction(formData: FormData) {
       birthDate: formData.get("birthDate") ? new Date(formData.get("birthDate") as string) : undefined,
       departmentId: formData.get("departmentId") ? parseInt(formData.get("departmentId") as string) : undefined,
       positionId: formData.get("positionId") ? parseInt(formData.get("positionId") as string) : undefined,
-      baseSalary: parseFloat(formData.get("baseSalary") as string),
+      baseSalary,
       salaryFrequency: (formData.get("salaryFrequency") as string) || "monthly",
+      salaryType,
       paymentMethod: (formData.get("paymentMethod") as string) || "cash",
       bankId: formData.get("bankId") ? parseInt(formData.get("bankId") as string) : undefined,
       accountNumber: formData.get("accountNumber") as string || undefined,
@@ -91,6 +98,12 @@ export async function createEmployeeAction(formData: FormData) {
 }
 
 export async function updateEmployeeAction(id: number, formData: FormData) {
+  const baseSalary = parseFloat(formData.get("baseSalary") as string);
+  const salaryType = (formData.get("salaryType") as string) || "";
+  if (!Number.isFinite(baseSalary) || baseSalary < 0 || !["hourly", "monthly"].includes(salaryType)) {
+    return { error: "A valid salary amount and salary type are required" };
+  }
+
   try {
     const employee = await updateEmployee(id, {
       employeeCode: ((formData.get("employeeCode") as string) || "").toUpperCase(),
@@ -102,8 +115,9 @@ export async function updateEmployeeAction(id: number, formData: FormData) {
       birthDate: formData.get("birthDate") ? new Date(formData.get("birthDate") as string) : undefined,
       departmentId: formData.get("departmentId") ? parseInt(formData.get("departmentId") as string) : undefined,
       positionId: formData.get("positionId") ? parseInt(formData.get("positionId") as string) : undefined,
-      baseSalary: parseFloat(formData.get("baseSalary") as string),
+      baseSalary,
       salaryFrequency: (formData.get("salaryFrequency") as string) || "monthly",
+      salaryType,
       paymentMethod: (formData.get("paymentMethod") as string) || "cash",
       bankId: formData.get("bankId") ? parseInt(formData.get("bankId") as string) : undefined,
       accountNumber: formData.get("accountNumber") as string || undefined,
@@ -223,6 +237,7 @@ export async function importStaffAction(customerId: number, employeesData: any[]
           sssNumber: row.sssNumber ? String(row.sssNumber).trim() : null,
           baseSalary: parseFloat(row.baseSalary) || 0,
           salaryFrequency: row.salaryFrequency ? String(row.salaryFrequency).toLowerCase() : "monthly",
+          salaryType: row.salaryType ? String(row.salaryType).toLowerCase() : "monthly",
           paymentMethod: row.paymentMethod ? String(row.paymentMethod).toLowerCase() : "cash",
           departmentId,
           positionId,

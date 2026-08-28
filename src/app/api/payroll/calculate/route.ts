@@ -115,19 +115,10 @@ async function calculateOvertime(
     return [];
   }
 
-  // Calculate hourly rate based on salary frequency
-  let hourlyRate: number;
-  switch (employee.salaryFrequency) {
-    case 'hourly':
-      hourlyRate = employee.baseSalary;
-      break;
-    case 'weekly':
-      hourlyRate = employee.baseSalary / 40;
-      break;
-    case 'monthly':
-    default:
-      hourlyRate = employee.baseSalary / overtimeRule.baseHourDivisor;
-  }
+  // Salary type determines whether baseSalary is hourly or monthly.
+  const hourlyRate = employee.salaryType === 'hourly'
+    ? employee.baseSalary
+    : employee.baseSalary / overtimeRule.baseHourDivisor;
 
   const earnings: { code: string; amount: number; description: string }[] = [];
 
@@ -258,8 +249,8 @@ export async function POST(request: NextRequest) {
       const employeeEarnings = [];
       const employeeDeductions = [];
 
-      // 1. Add base salary
-      let baseSalary = employee.baseSalary;
+      // 1. Add monthly base salary. Hourly employees are paid from hours worked.
+      let baseSalary = employee.salaryType === 'monthly' ? employee.baseSalary : 0;
       
       // Prorate for partial periods if needed
       const daysInPeriod = Math.ceil(
@@ -267,20 +258,22 @@ export async function POST(request: NextRequest) {
         (1000 * 60 * 60 * 24)
       ) + 1;
       
-      if (employee.salaryFrequency === 'monthly' && daysInPeriod < 30) {
+      if (employee.salaryType === 'monthly' && daysInPeriod < 30) {
         baseSalary = (baseSalary / 30) * daysInPeriod;
       }
 
-      employeeEarnings.push({
-        payrollRunId: payrollRun.id,
-        employeeId: employee.id,
-        earningCode: 'SALARIO',
-        description: 'Salario Base',
-        quantity: 1,
-        unitAmount: baseSalary,
-        totalAmount: baseSalary,
-        isTaxable: true,
-      });
+      if (baseSalary > 0) {
+        employeeEarnings.push({
+          payrollRunId: payrollRun.id,
+          employeeId: employee.id,
+          earningCode: 'SALARIO',
+          description: 'Salario Base',
+          quantity: 1,
+          unitAmount: baseSalary,
+          totalAmount: baseSalary,
+          isTaxable: true,
+        });
+      }
 
       // 2. Process provided earnings (overtime, bonuses, etc.)
       const providedEarnings = earnings?.filter((e: any) => e.employeeId === employee.id) || [];

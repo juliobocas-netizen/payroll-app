@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       positionId,
       baseSalary,
       salaryFrequency,
+      salaryType,
       paymentMethod,
       bankId,
       accountNumber,
@@ -115,6 +116,7 @@ export async function POST(request: NextRequest) {
         positionId: positionId ? parseInt(positionId) : null,
         baseSalary: parseFloat(baseSalary),
         salaryFrequency: salaryFrequency || 'monthly',
+        salaryType: salaryType || 'monthly',
         paymentMethod: paymentMethod || 'cash',
         bankId: bankId ? parseInt(bankId) : null,
         accountNumber: accountNumber || null,
@@ -176,6 +178,7 @@ export async function PUT(request: NextRequest) {
     if (updateData.departmentId) parsedData.departmentId = parseInt(updateData.departmentId);
     if (updateData.positionId) parsedData.positionId = parseInt(updateData.positionId);
     if (updateData.baseSalary) parsedData.baseSalary = parseFloat(updateData.baseSalary);
+    if (updateData.salaryType) parsedData.salaryType = updateData.salaryType;
     if (updateData.bankId) parsedData.bankId = parseInt(updateData.bankId);
 
     const employee = await prisma.employee.update({

@@ -15,6 +15,7 @@ export async function createEmployee(data: {
   positionId?: number;
   baseSalary: number;
   salaryFrequency?: string;
+  salaryType?: string;
   paymentMethod?: string;
   bankId?: number;
   accountNumber?: string;
@@ -29,6 +30,7 @@ export async function createEmployee(data: {
       ...data,
       idType: data.idType || "cedula",
       salaryFrequency: data.salaryFrequency || "monthly",
+      salaryType: data.salaryType || "monthly",
       paymentMethod: data.paymentMethod || "cash",
       isOvertimeEligible: data.isOvertimeEligible ?? true,
       restDay: data.restDay || "domingo",
@@ -48,6 +50,7 @@ export async function updateEmployee(id: number, data: {
   positionId?: number;
   baseSalary?: number;
   salaryFrequency?: string;
+  salaryType?: string;
   paymentMethod?: string;
   bankId?: number;
   accountNumber?: string;
@@ -74,6 +77,7 @@ export async function updateEmployee(id: number, data: {
       ...(data.positionId !== undefined && { positionId: data.positionId }),
       ...(data.baseSalary !== undefined && { baseSalary: data.baseSalary }),
       ...(data.salaryFrequency !== undefined && { salaryFrequency: data.salaryFrequency }),
+      ...(data.salaryType !== undefined && { salaryType: data.salaryType }),
       ...(data.paymentMethod !== undefined && { paymentMethod: data.paymentMethod }),
       ...(data.bankId !== undefined && { bankId: data.bankId }),
       ...(data.accountNumber !== undefined && { accountNumber: data.accountNumber }),

@@ -53,6 +53,10 @@ interface PayrollLine {
   deductions: any[];
   monthlySalary: number;
   hourlyRate: number;
+  salaryType: string;
+  payFrequency: string;
+  hoursWorked: number;
+  daysWorked: number;
 }
 
 export default function PayrollRunPage() {
@@ -324,8 +328,12 @@ function PayrollRunContent() {
                 thirteenthMonth: 0,
                 earnings: [],
                 deductions: [],
-                monthlySalary: e.employee.baseSalary || 0,
-                hourlyRate: (e.employee.baseSalary || 0) / 240
+                monthlySalary: e.employee.salaryType === "monthly" ? e.employee.baseSalary || 0 : 0,
+                hourlyRate: e.employee.salaryType === "hourly" ? e.employee.baseSalary || 0 : (e.employee.baseSalary || 0) / 240,
+                salaryType: e.employee.salaryType || "monthly",
+                payFrequency: e.employee.salaryFrequency || "monthly",
+                hoursWorked: 0,
+                daysWorked: 0
               };
             }
             empMap[e.employeeId].earnings.push(e);
@@ -681,8 +689,12 @@ function PayrollRunContent() {
               thirteenthMonth: 0,
               earnings: [],
               deductions: [],
-              monthlySalary: e.employee.baseSalary || 0,
-              hourlyRate: (e.employee.baseSalary || 0) / 240
+              monthlySalary: e.employee.salaryType === "monthly" ? e.employee.baseSalary || 0 : 0,
+              hourlyRate: e.employee.salaryType === "hourly" ? e.employee.baseSalary || 0 : (e.employee.baseSalary || 0) / 240,
+              salaryType: e.employee.salaryType || "monthly",
+              payFrequency: e.employee.salaryFrequency || "monthly",
+              hoursWorked: 0,
+              daysWorked: 0
             };
           }
           empMap[e.employeeId].earnings.push(e);

@@ -7,6 +7,12 @@ export interface PayrollResult {
   employeeCode: string;
   employeeName: string;
   baseSalary: number;
+  salaryType: string;
+  payFrequency: string;
+  hoursWorked: number;
+  daysWorked: number;
+  premiums: number;
+  totalPay: number;
   grossPay: number;
   css: number;
   seguroEducativo: number;
@@ -147,7 +153,24 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
     const empInputs = inputByEmployee[emp.id];
 
     let grossPay = 0;
-    const hourlyRate = round(emp.baseSalary / otBaseDivisor);
+    const salaryType = emp.salaryType || "monthly";
+    const hourlyRate = salaryType === "hourly" ? round(emp.baseSalary) : round(emp.baseSalary / otBaseDivisor);
+    const daysWorked = Math.max(1, Math.ceil((payrollRun.payTo.getTime() - payrollRun.payFrom.getTime()) / 86400000) + 1);
+    const hoursWorked = empInputs.reduce((sum, input) => sum + (input.regularHours || 0) + (input.overtimeHours || 0) + (input.holidayHours || 0) + (input.restDayHours || 0), 0);
+    let premiums = 0;
+
+    if (salaryType === "monthly" && empInputs.some(input => input.inputType !== "amount")) {
+      const basePay = round((emp.baseSalary / 30) * daysWorked);
+      grossPay += basePay;
+      earnings.push({
+        code: "SALARIO",
+        description: `Salario Mensual (${daysWorked} dias)`,
+        quantity: daysWorked,
+        unitAmount: round(emp.baseSalary / 30),
+        totalAmount: basePay,
+        isTaxable: true,
+      });
+    }
 
     // Process Inputs
     for (const input of empInputs) {
@@ -233,7 +256,7 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
         const hol = input.holidayHours || 0;
         const rest = input.restDayHours || 0;
 
-        if (reg > 0) {
+        if (reg > 0 && salaryType === "hourly") {
           const amount = round(reg * hourlyRate);
           grossPay += amount;
           earnings.push({
@@ -248,6 +271,7 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
         if (ot > 0) {
           const amount = round(ot * hourlyRate * otMultiplierDiurna);
           grossPay += amount;
+          premiums += amount;
           earnings.push({
             code: "HORA_EXTRA",
             description: `Horas Extra ${input.date.toLocaleDateString()}`,
@@ -260,6 +284,7 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
         if (hol > 0) {
           const amount = round(hol * hourlyRate * otMultiplierHoliday);
           grossPay += amount;
+          premiums += amount;
           earnings.push({
             code: "HORA_FERIADO",
             description: `Horas Feriado ${input.date.toLocaleDateString()}`,
@@ -272,6 +297,7 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
         if (rest > 0) {
           const amount = round(rest * hourlyRate * otMultiplierRestday);
           grossPay += amount;
+          premiums += amount;
           earnings.push({
             code: "HORA_DESCANSO",
             description: `Horas Descanso ${input.date.toLocaleDateString()}`,
@@ -423,6 +449,12 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
       employeeCode: emp.employeeCode,
       employeeName: `${emp.firstName} ${emp.lastName}`,
       baseSalary: emp.baseSalary,
+      salaryType,
+      payFrequency: frequency,
+      hoursWorked,
+      daysWorked: salaryType === "monthly" ? daysWorked : 0,
+      premiums: round(premiums),
+      totalPay: grossPay,
       grossPay,
       css,
       seguroEducativo: seguro,

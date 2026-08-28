@@ -38,6 +38,7 @@ interface Employee {
   positionId: number | null;
   baseSalary: number;
   salaryFrequency: string;
+  salaryType: string;
   paymentMethod: string;
   bankId: number | null;
   accountNumber: string | null;
@@ -90,8 +91,9 @@ export default function EmployeesPage() {
     birthDate: "",
     departmentId: "" as string | number,
     positionId: "" as string | number,
-    baseSalary: 0,
+    baseSalary: "",
     salaryFrequency: "monthly",
+    salaryType: "",
     paymentMethod: "bank",
     bankId: "" as string | number,
     accountNumber: "",
@@ -175,8 +177,9 @@ export default function EmployeesPage() {
     form.append("birthDate", formData.birthDate || "");
     form.append("departmentId", formData.departmentId.toString());
     form.append("positionId", formData.positionId.toString());
-    form.append("baseSalary", formData.baseSalary.toString());
+    form.append("baseSalary", formData.baseSalary);
     form.append("salaryFrequency", formData.salaryFrequency);
+    form.append("salaryType", formData.salaryType);
     form.append("paymentMethod", formData.paymentMethod);
     form.append("bankId", formData.bankId.toString());
     form.append("accountNumber", formData.accountNumber);
@@ -277,8 +280,9 @@ export default function EmployeesPage() {
       birthDate: emp.birthDate || "",
       departmentId: emp.departmentId || "",
       positionId: emp.positionId || "",
-      baseSalary: emp.baseSalary,
+      baseSalary: emp.baseSalary.toFixed(2),
       salaryFrequency: emp.salaryFrequency,
+      salaryType: emp.salaryType || "monthly",
       paymentMethod: emp.paymentMethod,
       bankId: emp.bankId || "",
       accountNumber: emp.accountNumber || "",
@@ -389,8 +393,9 @@ export default function EmployeesPage() {
                   birthDate: "",
                   departmentId: "",
                   positionId: "",
-                  baseSalary: 0,
+                  baseSalary: "",
                   salaryFrequency: "monthly",
+                  salaryType: "",
                   paymentMethod: "bank",
                   bankId: "",
                   accountNumber: "",
@@ -643,15 +648,6 @@ export default function EmployeesPage() {
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-on-surface-variant uppercase">{t(locale, "employees.baseSalary")}</label>
-                <input
-                  type="number"
-                  value={formData.baseSalary}
-                  onChange={(e) => setFormData({ ...formData, baseSalary: Number(e.target.value) })}
-                  className="w-full px-3 py-2 border border-outline rounded-lg text-sm focus:ring-2 focus:ring-secondary outline-none"
-                />
-              </div>
-              <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant uppercase">{t(locale, "employees.payFrequency")}</label>
                 <select
                   value={formData.salaryFrequency}
@@ -662,6 +658,44 @@ export default function EmployeesPage() {
                   <option value="biweekly">{t(locale, "employees.biweekly")}</option>
                   <option value="weekly">{t(locale, "employees.weekly")}</option>
                 </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">Salary Type</label>
+                <select
+                  value={formData.salaryType}
+                  onChange={(e) => setFormData({ ...formData, salaryType: e.target.value, baseSalary: "" })}
+                  className="w-full px-3 py-2 border border-outline rounded-lg text-sm focus:ring-2 focus:ring-secondary outline-none bg-white"
+                  required
+                >
+                  <option value="">Select salary type</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="hourly">Hourly</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-on-surface-variant uppercase">
+                  {formData.salaryType === "hourly" ? "Hourly Rate" : "Monthly Salary Amount"}
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={formData.baseSalary}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (/^\d*(\.\d{0,2})?$/.test(value)) {
+                      setFormData({ ...formData, baseSalary: value });
+                    }
+                  }}
+                  onBlur={() => {
+                    if (formData.baseSalary !== "") {
+                      setFormData({ ...formData, baseSalary: Number(formData.baseSalary).toFixed(2) });
+                    }
+                  }}
+                  placeholder="0.00"
+                  disabled={!formData.salaryType}
+                  required
+                  className="w-full px-3 py-2 border border-outline rounded-lg text-sm focus:ring-2 focus:ring-secondary outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-bold text-on-surface-variant uppercase">{t(locale, "employees.hireDate")}</label>
