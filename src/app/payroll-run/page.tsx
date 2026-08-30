@@ -725,6 +725,41 @@ function PayrollRunContent() {
     return input?.[field] || "";
   }
 
+  function handleBreakChange(employeeCode: string, date: string, field: "breakStartTime" | "breakEndTime", value: string) {
+    setInOutPreview(prev => {
+      const index = prev.findIndex(r => r.employeeCode === employeeCode && r.date === date);
+      if (index > -1) {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], [field]: value };
+        
+        // Auto-calculate break minutes
+        const breakStart = updated[index].breakStartTime;
+        const breakEnd = updated[index].breakEndTime;
+        if (breakStart && breakEnd) {
+          const [bsh, bsm] = breakStart.split(":").map(Number);
+          const [beh, bem] = breakEnd.split(":").map(Number);
+          const startMin = bsh * 60 + bsm;
+          const endMin = beh * 60 + bem;
+          const breakMinutes = Math.max(0, endMin - startMin);
+          updated[index].breakMinutes = breakMinutes;
+        }
+        
+        return updated;
+      }
+      return prev;
+    });
+  }
+
+  function getBreakSegment(breakStartTime: string, breakEndTime: string): string {
+    if (!breakStartTime || !breakEndTime) return "-";
+    const [bsh, bsm] = breakStartTime.split(":").map(Number);
+    const breakStartMin = bsh * 60 + bsm;
+    
+    if (breakStartMin >= 6 * 60 && breakStartMin < 14 * 60) return "Diurna";
+    if (breakStartMin >= 14 * 60 && breakStartMin < 22 * 60) return "Mixta";
+    return "Nocturna";
+  }
+
   function handleNoteChange(employeeCode: string, value: string) {
     setPayrollInputs(prev => {
       // Find the first input for this employee to attach the note to
@@ -1902,13 +1937,35 @@ function PayrollRunContent() {
               </div>
               <button onClick={() => setShowInOutPreview(false)} className="p-1 hover:bg-slate-200 rounded-full"><X size={20} /></button>
             </div>
-            <div className="p-4 max-h-[55vh] overflow-auto">
+            <div className="p-4 max-h-[60vh] overflow-auto">
               <table className="w-full text-sm border-collapse">
-                <thead><tr className="bg-surface-container-low text-left"><th className="p-2">Employee</th><th className="p-2">Date</th><th className="p-2">Day</th><th className="p-2">First In</th><th className="p-2">Break Start</th><th className="p-2">Break End</th><th className="p-2">Last Out</th><th className="p-2">Payroll Hours</th></tr></thead>
+                <thead><tr className="bg-surface-container-low text-left sticky top-0"><th className="p-2 whitespace-nowrap">Employee</th><th className="p-2 whitespace-nowrap">Date</th><th className="p-2 whitespace-nowrap">First In</th><th className="p-2 whitespace-nowrap">Break Start</th><th className="p-2 whitespace-nowrap">Break End</th><th className="p-2 whitespace-nowrap">Jornada</th><th className="p-2 whitespace-nowrap">Break Min</th><th className="p-2 whitespace-nowrap">Last Out</th><th className="p-2 whitespace-nowrap">Hours</th></tr></thead>
                 <tbody>
                   {inOutPreview.map((row, index) => (
-                    <tr key={`${row.date}-${index}`} className="border-b border-outline">
-                      <td className="p-2">{row.employeeCode}</td><td className="p-2">{row.date}</td><td className="p-2">{row.day}</td><td className="p-2">{row.startTime}</td><td className="p-2">{row.breakStartTime || "-"}</td><td className="p-2">{row.breakEndTime || "-"}</td><td className="p-2">{row.endTime}</td><td className="p-2">{row.payrollHours.toFixed(2)}</td>
+                    <tr key={`${row.date}-${index}`} className="border-b border-outline hover:bg-surface-container-low">
+                      <td className="p-2">{row.employeeCode}</td>
+                      <td className="p-2">{row.date}</td>
+                      <td className="p-2">{row.startTime}</td>
+                      <td className="p-2">
+                        <input 
+                          type="time" 
+                          value={row.breakStartTime || ""} 
+                          onChange={(e) => handleBreakChange(row.employeeCode, row.date, "breakStartTime", e.target.value)}
+                          className="w-20 px-2 py-1 text-xs border border-outline rounded-lg focus:ring-2 focus:ring-secondary outline-none"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <input 
+                          type="time" 
+                          value={row.breakEndTime || ""} 
+                          onChange={(e) => handleBreakChange(row.employeeCode, row.date, "breakEndTime", e.target.value)}
+                          className="w-20 px-2 py-1 text-xs border border-outline rounded-lg focus:ring-2 focus:ring-secondary outline-none"
+                        />
+                      </td>
+                      <td className="p-2 text-xs font-semibold">{getBreakSegment(row.breakStartTime || "", row.breakEndTime || "")}</td>
+                      <td className="p-2 text-xs text-center font-mono">{row.breakMinutes || 0}</td>
+                      <td className="p-2">{row.endTime}</td>
+                      <td className="p-2">{row.payrollHours.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>

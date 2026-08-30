@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { calculateTimePayroll, type TimeSegment, type ShiftType } from "@/lib/calculations/panama-time";
+import { getBreakSegmentDeductions, getJornadaLabelForSegment } from "@/lib/calculations/break-deduction";
 import { createAuditLog, createPayrollEarning, createPayrollDeduction, createPaymentOutput, createAccrual13thMonth, createPayrollSummary, clearPayrollRunEarningsAndDeductions, updatePayrollRunStatus } from "@/lib/db/mutations";
 
 export interface PayrollResult {
@@ -288,12 +289,29 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
           earnings.push(segmentEarning);
         }
 
-        if ((input.breakMinutes || 0) > 0) {
+        // Handle segment-aware break deductions
+        if ((input.breakMinutes || 0) > 0 && input.breakStartTime && input.breakEndTime) {
+          const breakDeductions = getBreakSegmentDeductions(input.breakStartTime, input.breakEndTime);
+          for (const breakDed of breakDeductions) {
+            const breakHours = -(breakDed.breakMinutes / 60);
+            const jornadaLabel = getJornadaLabelForSegment(breakDed.segment);
+            const description = `${inputDate} | ${input.breakStartTime}-${input.breakEndTime} | ${jornadaLabel} | Break Deduction`;
+            earnings.push({
+              code: "DESCANSO",
+              description,
+              quantity: round(breakHours),
+              unitAmount: 0,
+              totalAmount: 0,
+              isTaxable: false,
+            });
+          }
+        } else if ((input.breakMinutes || 0) > 0) {
+          // Fallback for old format without break start/end times
           const breakHours = -(input.breakMinutes || 0) / 60;
           earnings.push({
             code: "DESCANSO",
-            description: `${inputDate} | ${input.startTime}-${input.endTime} | Break | ${input.breakMinutes} minutes`,
-            quantity: breakHours,
+            description: `${inputDate} | Break | ${input.breakMinutes} minutes`,
+            quantity: round(breakHours),
             unitAmount: 0,
             totalAmount: 0,
             isTaxable: false,
