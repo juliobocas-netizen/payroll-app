@@ -198,6 +198,62 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
       });
     }
 
+    function formatMinutesAsTime(totalMinutes: number) {
+      const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+      const hours = Math.floor(normalized / 60);
+      const mins = normalized % 60;
+      return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+    }
+
+    function getSegmentWindow(startTime: string, endTime: string, segment: "day" | "evening" | "night") {
+      const startMinutes = Number(startTime.split(":")[0]) * 60 + Number(startTime.split(":")[1]);
+      let endMinutes = Number(endTime.split(":")[0]) * 60 + Number(endTime.split(":")[1]);
+      if (endMinutes <= startMinutes) endMinutes += 1440;
+
+      const segmentLimits: Record<"day" | "evening" | "night", [number, number]> = {
+        day: [6 * 60, 14 * 60],
+        evening: [14 * 60, 22 * 60],
+        night: [22 * 60, 30 * 60],
+      };
+
+      const [limitStart, limitEnd] = segmentLimits[segment];
+      const windowStart = Math.max(startMinutes, limitStart);
+      const windowEnd = Math.min(endMinutes, limitEnd);
+
+      if (windowEnd <= windowStart) {
+        return { start: formatMinutesAsTime(startMinutes), end: formatMinutesAsTime(endMinutes) };
+      }
+
+      return {
+        start: formatMinutesAsTime(windowStart),
+        end: formatMinutesAsTime(windowEnd),
+      };
+    }
+
+    function getJornadaLabel(segment: "day" | "evening" | "night") {
+      if (segment === "day") return "Jornada Diurna";
+      if (segment === "evening") return "Jornada Mixta";
+      return "Jornada Nocturna";
+    }
+
+    function buildSegmentEarning(inputDate: string, startTime: string, endTime: string, item: TimeSegment, baseRate: number) {
+      const quantity = item.hours > 0 ? item.hours : item.overtimeHours;
+      const unitAmount = round(baseRate * item.multiplier);
+      const totalAmount = round(quantity * unitAmount);
+      const kind = item.overtimeHours > 0 ? "Overtime" : "Regular";
+      const { start, end } = getSegmentWindow(startTime, endTime, item.segment);
+      const description = `${inputDate} | ${start}-${end} | ${getJornadaLabel(item.segment)} | ${kind}`;
+
+      return {
+        code: item.overtimeHours > 0 ? `OT_${item.segment.toUpperCase()}` : `REG_${item.segment.toUpperCase()}`,
+        description,
+        quantity,
+        unitAmount,
+        totalAmount,
+        isTaxable: true,
+      };
+    }
+
     // Process Inputs
     for (const input of empInputs) {
       if (input.startTime && input.endTime) {
@@ -225,14 +281,22 @@ export async function calculatePayroll(payrollRunId: number, userId?: number): P
         shiftType = timeResult.shiftType;
         breakdown = [...breakdown, ...timeResult.breakdown];
 
-        if (payableAmount > 0) {
+        for (const item of timeResult.breakdown) {
+          const quantity = item.hours > 0 ? item.hours : item.overtimeHours;
+          if (quantity <= 0) continue;
+          const segmentEarning = buildSegmentEarning(inputDate, input.startTime, input.endTime, item, hourlyRate);
+          earnings.push(segmentEarning);
+        }
+
+        if ((input.breakMinutes || 0) > 0) {
+          const breakHours = -(input.breakMinutes || 0) / 60;
           earnings.push({
-            code: "TIEMPO_TRABAJADO",
-            description: `${timeResult.shiftType} ${input.startTime}-${input.endTime}`,
-            quantity: timeResult.totalHours,
-            unitAmount: hourlyRate,
-            totalAmount: payableAmount,
-            isTaxable: true,
+            code: "DESCANSO",
+            description: `${inputDate} | ${input.startTime}-${input.endTime} | Break | ${input.breakMinutes} minutes`,
+            quantity: breakHours,
+            unitAmount: 0,
+            totalAmount: 0,
+            isTaxable: false,
           });
         }
         continue;

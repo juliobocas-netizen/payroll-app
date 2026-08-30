@@ -875,6 +875,48 @@ function PayrollRunContent() {
     return formatCurrencyByLocale(amount, locale);
   }
 
+  function getEffectiveUnitRate(earning: any, baseHourlyRate: number) {
+    const quantity = Number(earning?.quantity ?? 0);
+    if (Number.isFinite(quantity) && quantity !== 0) {
+      return Number(earning?.totalAmount ?? 0) / quantity;
+    }
+    return Number(earning?.unitAmount ?? baseHourlyRate ?? 0);
+  }
+
+  function getEffectiveMultiplier(earning: any, baseHourlyRate: number) {
+    if (!baseHourlyRate || Number(baseHourlyRate) <= 0) return 1;
+    const effectiveRate = getEffectiveUnitRate(earning, baseHourlyRate);
+    if (effectiveRate <= 0 || Number(earning?.quantity ?? 0) < 0) return 0;
+    return effectiveRate / baseHourlyRate;
+  }
+
+  function parseSegmentExportRow(earning: any, hourlyRate: number) {
+    const description = String(earning?.description || '');
+    const parts = description.split(' | ');
+    const date = parts[0] || '';
+    const timeRange = parts[1] || '';
+    const jornada = parts[2] || '';
+    const segmentType = parts[3] || '';
+    const breakText = description.toLowerCase().includes('break') ? 'Break' : '';
+    const qty = Number(earning?.quantity ?? 0);
+    const multiplier = getEffectiveMultiplier(earning, hourlyRate);
+    const unitRate = getEffectiveUnitRate(earning, hourlyRate);
+
+    return {
+      code: earning?.earningCode || '',
+      date,
+      startTime: timeRange.includes('-') ? timeRange.split('-')[0] : '',
+      endTime: timeRange.includes('-') ? timeRange.split('-')[1] : '',
+      jornada,
+      segmentType: segmentType || (qty < 0 ? 'Break' : 'Regular'),
+      breaks: breakText || (qty < 0 ? `${Math.abs(qty * 60).toFixed(0)} minutes` : '0 minutes'),
+      hours: qty,
+      multiplier: qty < 0 ? 0 : multiplier,
+      unitRate: qty < 0 ? 0 : unitRate,
+      subtotal: Number(earning?.totalAmount ?? 0),
+    };
+  }
+
   function exportEmployeeDetailToExcel(emp: PayrollLine) {
     const wb = XLSX.utils.book_new();
     const rows: any[][] = [
@@ -886,13 +928,26 @@ function PayrollRunContent() {
       [t(locale, "payroll.hourlyRate"), emp.hourlyRate],
       [],
       [t(locale, "payroll.earningsBreakdown")],
-      [t(locale, "common.description"), t(locale, "common.code"), t(locale, "payroll.quantity"), t(locale, "payroll.multiplier"), t(locale, "payroll.unitRate"), t(locale, "payroll.subtotal")],
+      ['Code', 'Item Description', 'Date', 'Start', 'End', 'Jornada', 'Segment', 'Breaks', 'Qty/Hours', 'Multiplier', 'Unit Rate', 'Subtotal'],
     ];
     emp.earnings.forEach((e: any) => {
-      const mult = e.unitAmount / emp.hourlyRate;
-      rows.push([e.description || '', e.earningCode || '', e.quantity || 0, parseFloat(mult.toFixed(2)), e.unitAmount, e.totalAmount]);
+      const row = parseSegmentExportRow(e, emp.hourlyRate);
+      rows.push([
+        row.code,
+        row.segmentType ? `${row.date} | ${row.startTime}-${row.endTime} | ${row.jornada} | ${row.segmentType}` : (e.description || ''),
+        row.date,
+        row.startTime,
+        row.endTime,
+        row.jornada,
+        row.segmentType,
+        row.breaks,
+        row.hours,
+        Number(row.multiplier).toFixed(2),
+        row.unitRate,
+        row.subtotal,
+      ]);
     });
-    rows.push(['', '', '', '', t(locale, "payroll.totalGross"), emp.grossPay]);
+    rows.push(['', '', '', '', '', '', '', '', '', '', t(locale, "payroll.totalGross"), emp.grossPay]);
     rows.push([]);
     rows.push([t(locale, "payroll.deductionsBreakdown")]);
     rows.push([t(locale, "common.description"), t(locale, "common.amount")]);
@@ -904,7 +959,7 @@ function PayrollRunContent() {
     rows.push([t(locale, "payroll.netIncome"), emp.netPay]);
     rows.push([t(locale, "payroll.xiiiMonthAccrual"), emp.thirteenthMonth]);
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
+    ws['!cols'] = [{ wch: 18 }, { wch: 34 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Employee Detail');
     XLSX.writeFile(wb, `employee_${emp.employeeCode}_${Date.now()}.xlsx`);
   }
@@ -912,16 +967,24 @@ function PayrollRunContent() {
   function printEmployeeDetail(emp: PayrollLine) {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
-    const multiplier = (e: any) => e.unitAmount / emp.hourlyRate;
-    const earningsRows = emp.earnings.map((e: any) => `
+    const earningsRows = emp.earnings.map((e: any) => {
+      const row = parseSegmentExportRow(e, emp.hourlyRate);
+      return `
       <tr>
-        <td style="padding:6px 10px;border:1px solid #ddd">${e.description || ''}<br><small style="color:#888">${e.earningCode || ''}</small></td>
-        <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${e.quantity || 0}</td>
-        <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${multiplier(e).toFixed(2)}x</td>
-        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">$${e.unitAmount.toFixed(2)}</td>
-        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">$${e.totalAmount.toFixed(2)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.code}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.date || ''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.startTime || ''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.endTime || ''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.jornada || ''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.segmentType || ''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.breaks || '0 minutes'}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${row.hours.toFixed(2)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${Number(row.multiplier).toFixed(2)}x</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">$${Number(row.unitRate).toFixed(2)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">$${Number(row.subtotal).toFixed(2)}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
     const deductionsRows = emp.deductions.map((d: any) => `
       <tr>
         <td style="padding:6px 10px;border:1px solid #ddd">${d.description || d.deductionCode || ''}</td>
@@ -936,7 +999,7 @@ function PayrollRunContent() {
         .meta { color: #666; font-size: 13px; margin-bottom: 24px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
         th { background: #f0f0f0; padding: 8px 10px; border:1px solid #ddd; font-size: 11px; text-transform: uppercase; text-align: left; }
-        td { padding: 6px 10px; border:1px solid #ddd; font-size: 13px; }
+        td { padding: 6px 10px; border:1px solid #ddd; font-size: 12px; }
         .total { font-weight: bold; background: #f8f8f8; }
         .net { font-size: 24px; font-weight: bold; color: #0051d5; }
         .footer { border-top: 2px solid #0051d5; padding-top: 16px; display: flex; justify-content: space-between; }
@@ -946,9 +1009,9 @@ function PayrollRunContent() {
       <div class="meta">${t(locale, "payroll.code")}: ${emp.employeeCode} | ${t(locale, "payroll.baseMonthlySalary")}: $${emp.monthlySalary.toFixed(2)} | ${t(locale, "payroll.hourlyRate")}: $${emp.hourlyRate.toFixed(2)}/h</div>
       <h3 style="margin:0 0 8px;font-size:14px">${t(locale, "payroll.earnings")}</h3>
       <table><thead><tr>
-        <th>${t(locale, "common.description")}</th><th style="text-align:center">${t(locale, "payroll.quantity")}</th><th style="text-align:center">${t(locale, "payroll.multiplier")}</th><th style="text-align:right">${t(locale, "payroll.unitRate")}</th><th style="text-align:right">${t(locale, "payroll.subtotal")}</th>
+        <th>Code</th><th>Date</th><th>Start</th><th>End</th><th>Jornada</th><th>Segment</th><th>Breaks</th><th>Qty/Hours</th><th>Multiplier</th><th>Unit Rate</th><th>Subtotal</th>
       </tr></thead><tbody>${earningsRows}</tbody>
-      <tfoot><tr class="total"><td colspan="4" style="text-align:right">${t(locale, "payroll.totalGross")}</td><td style="text-align:right">$${emp.grossPay.toFixed(2)}</td></tr></tfoot></table>
+      <tfoot><tr class="total"><td colspan="10" style="text-align:right">${t(locale, "payroll.totalGross")}</td><td style="text-align:right">$${emp.grossPay.toFixed(2)}</td></tr></tfoot></table>
       <h3 style="margin:0 0 8px;font-size:14px">${t(locale, "payroll.deductions")}</h3>
       <table><thead><tr>
         <th>${t(locale, "common.description")}</th><th style="text-align:right">${t(locale, "common.amount")}</th>
@@ -2035,8 +2098,10 @@ function PayrollRunContent() {
                     </thead>
                     <tbody className="divide-y divide-outline">
                       {selectedEmployee.earnings.map((e: any, idx: number) => {
-                        const multiplier = e.unitAmount / selectedEmployee.hourlyRate;
-                        const isPremium = multiplier > 1.01;
+                        const multiplier = getEffectiveMultiplier(e, selectedEmployee.hourlyRate);
+                        const effectiveUnitRate = getEffectiveUnitRate(e, selectedEmployee.hourlyRate);
+                        const isBreak = e.quantity < 0 || (e.unitAmount === 0 && e.totalAmount === 0);
+                        const isPremium = multiplier > 1.01 && !isBreak;
                         return (
                           <tr key={idx} className="hover:bg-surface-container-lowest transition-colors text-[13px]">
                             <td className="px-4 py-3">
@@ -2045,16 +2110,18 @@ function PayrollRunContent() {
                             </td>
                             <td className="px-4 py-3 text-center font-data-mono font-medium">{e.quantity}</td>
                             <td className="px-4 py-3 text-center font-data-mono text-on-surface-variant">
-                              {isPremium ? `${multiplier.toFixed(2)}x` : '1.00x'}
+                              {isBreak ? '0.00x' : isPremium ? `${multiplier.toFixed(2)}x` : '1.00x'}
                             </td>
                             <td className="px-4 py-3 text-right font-data-mono">
-                              {isPremium ? (
+                              {isBreak ? (
+                                formatCurrency(0)
+                              ) : isPremium ? (
                                 <div className="flex flex-col items-end">
-                                  <span>{formatCurrency(e.unitAmount)}</span>
+                                  <span>{formatCurrency(effectiveUnitRate)}</span>
                                   <span className="text-[10px] opacity-60">({formatCurrency(selectedEmployee.hourlyRate)} * {multiplier.toFixed(2)})</span>
                                 </div>
                               ) : (
-                                formatCurrency(e.unitAmount)
+                                formatCurrency(effectiveUnitRate)
                               )}
                             </td>
                             <td className="px-4 py-3 text-right font-bold font-data-mono text-on-surface">{formatCurrency(e.totalAmount)}</td>

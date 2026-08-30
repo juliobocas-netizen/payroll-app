@@ -247,6 +247,33 @@ function ReviewApproveContent() {
     return formatCurrencyByLocale(amount, locale);
   }
 
+  function parseSegmentExportRow(earning: any, hourlyRate: number) {
+    const description = String(earning?.description || '');
+    const parts = description.split(' | ');
+    const date = parts[0] || '';
+    const timeRange = parts[1] || '';
+    const jornada = parts[2] || '';
+    const segmentType = parts[3] || '';
+    const qty = Number(earning?.quantity ?? 0);
+    const multiplier = qty < 0 ? 0 : Number(earning?.totalAmount ?? 0) / (Number(earning?.quantity ?? 0) || 1) / hourlyRate;
+    const unitRate = qty < 0 ? 0 : Number(earning?.totalAmount ?? 0) / (Number(earning?.quantity ?? 0) || 1);
+    const breaks = description.toLowerCase().includes('break') ? 'Break' : '0 minutes';
+
+    return {
+      code: earning?.earningCode || '',
+      date,
+      startTime: timeRange.includes('-') ? timeRange.split('-')[0] : '',
+      endTime: timeRange.includes('-') ? timeRange.split('-')[1] : '',
+      jornada,
+      segmentType: segmentType || (qty < 0 ? 'Break' : 'Regular'),
+      breaks,
+      hours: qty,
+      multiplier: Number(multiplier || 0),
+      unitRate: Number(unitRate || 0),
+      subtotal: Number(earning?.totalAmount ?? 0),
+    };
+  }
+
   function exportEmployeeDetailToExcel(emp: any) {
     const empEarnings = (payrollRun?.earnings || []).filter((e: any) => e.employeeId === emp.id);
     const empDeductions = (payrollRun?.deductions || []).filter((d: any) => d.employeeId === emp.id);
@@ -262,12 +289,26 @@ function ReviewApproveContent() {
       [t(locale, "payroll.hourlyRate"), hourlyRate],
       [],
       [t(locale, "payroll.earningsBreakdown")],
-      [t(locale, "common.description"), t(locale, "common.code"), t(locale, "payroll.quantity"), t(locale, "payroll.unitRate"), t(locale, "payroll.subtotal")],
+      ['Code', 'Item Description', 'Date', 'Start', 'End', 'Jornada', 'Segment', 'Breaks', 'Qty/Hours', 'Multiplier', 'Unit Rate', 'Subtotal'],
     ];
     empEarnings.forEach((e: any) => {
-      rows.push([e.description || '', e.earningCode || '', e.quantity || 0, e.unitAmount, e.totalAmount]);
+      const row = parseSegmentExportRow(e, hourlyRate);
+      rows.push([
+        row.code,
+        `${row.date} | ${row.startTime}-${row.endTime} | ${row.jornada} | ${row.segmentType}`,
+        row.date,
+        row.startTime,
+        row.endTime,
+        row.jornada,
+        row.segmentType,
+        row.breaks,
+        row.hours,
+        Number(row.multiplier).toFixed(2),
+        row.unitRate,
+        row.subtotal,
+      ]);
     });
-    rows.push(['', '', '', t(locale, "payroll.totalGross"), emp.grossPay]);
+    rows.push(['', '', '', '', '', '', '', '', '', '', t(locale, "payroll.totalGross"), emp.grossPay]);
     rows.push([]);
     rows.push([t(locale, "payroll.deductionsBreakdown")]);
     rows.push([t(locale, "common.description"), t(locale, "common.amount")]);
@@ -279,7 +320,7 @@ function ReviewApproveContent() {
     rows.push([t(locale, "payroll.netIncome"), emp.netPay]);
     rows.push([t(locale, "payroll.xiiiMonthAccrual"), emp.thirteenthMonth]);
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
+    ws['!cols'] = [{ wch: 18 }, { wch: 34 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Employee Detail');
     XLSX.writeFile(wb, `employee_${emp.employeeCode}_${Date.now()}.xlsx`);
   }
@@ -287,16 +328,28 @@ function ReviewApproveContent() {
   function printEmployeeDetail(emp: any) {
     const empEarnings = (payrollRun?.earnings || []).filter((e: any) => e.employeeId === emp.id);
     const empDeductions = (payrollRun?.deductions || []).filter((d: any) => d.employeeId === emp.id);
+    const monthlySalary = empEarnings.find((e: any) => e.earningCode === 'SALARIO' || e.earningCode === 'BASICO')?.employee?.baseSalary || 0;
+    const hourlyRate = monthlySalary / 240;
     const printWin = window.open('', '_blank');
     if (!printWin) return;
-    const earningsRows = empEarnings.map((e: any) => `
+    const earningsRows = empEarnings.map((e: any) => {
+      const row = parseSegmentExportRow(e, hourlyRate);
+      return `
       <tr>
-        <td style="padding:6px 10px;border:1px solid #ddd">${e.description || ''}<br><small style="color:#888">${e.earningCode || ''}</small></td>
-        <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${e.quantity || 0}</td>
-        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">$${e.unitAmount.toFixed(2)}</td>
-        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">$${e.totalAmount.toFixed(2)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.code}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.date || ''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.startTime || ''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.endTime || ''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.jornada || ''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.segmentType || ''}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd">${row.breaks || '0 minutes'}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${Number(row.hours).toFixed(2)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:center">${Number(row.multiplier).toFixed(2)}x</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">$${Number(row.unitRate).toFixed(2)}</td>
+        <td style="padding:6px 10px;border:1px solid #ddd;text-align:right">$${Number(row.subtotal).toFixed(2)}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
     const deductionsRows = empDeductions.map((d: any) => `
       <tr>
         <td style="padding:6px 10px;border:1px solid #ddd">${d.description || d.deductionCode || ''}</td>
@@ -311,7 +364,7 @@ function ReviewApproveContent() {
         .meta { color: #666; font-size: 13px; margin-bottom: 24px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
         th { background: #f0f0f0; padding: 8px 10px; border:1px solid #ddd; font-size: 11px; text-transform: uppercase; text-align: left; }
-        td { padding: 6px 10px; border:1px solid #ddd; font-size: 13px; }
+        td { padding: 6px 10px; border:1px solid #ddd; font-size: 12px; }
         .total { font-weight: bold; background: #f8f8f8; }
         .net { font-size: 24px; font-weight: bold; color: #0051d5; }
         .footer { border-top: 2px solid #0051d5; padding-top: 16px; display: flex; justify-content: space-between; }
@@ -321,9 +374,9 @@ function ReviewApproveContent() {
       <div class="meta">${t(locale, "payroll.code")}: ${emp.employeeCode}</div>
       <h3 style="margin:0 0 8px;font-size:14px">${t(locale, "payroll.earnings")}</h3>
       <table><thead><tr>
-        <th>${t(locale, "common.description")}</th><th style="text-align:center">${t(locale, "payroll.quantity")}</th><th style="text-align:right">${t(locale, "payroll.unitRate")}</th><th style="text-align:right">${t(locale, "payroll.subtotal")}</th>
+        <th>Code</th><th>Date</th><th>Start</th><th>End</th><th>Jornada</th><th>Segment</th><th>Breaks</th><th>Qty/Hours</th><th>Multiplier</th><th>Unit Rate</th><th>Subtotal</th>
       </tr></thead><tbody>${earningsRows}</tbody>
-      <tfoot><tr class="total"><td colspan="3" style="text-align:right">${t(locale, "payroll.totalGross")}</td><td style="text-align:right">$${emp.grossPay.toFixed(2)}</td></tr></tfoot></table>
+      <tfoot><tr class="total"><td colspan="10" style="text-align:right">${t(locale, "payroll.totalGross")}</td><td style="text-align:right">$${emp.grossPay.toFixed(2)}</td></tr></tfoot></table>
       <h3 style="margin:0 0 8px;font-size:14px">${t(locale, "payroll.deductions")}</h3>
       <table><thead><tr>
         <th>${t(locale, "common.description")}</th><th style="text-align:right">${t(locale, "common.amount")}</th>

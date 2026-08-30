@@ -57,3 +57,5 @@ next-env.d.ts
 
 # design docs (not for deployment)
 Stitch/
+
+.vercel
